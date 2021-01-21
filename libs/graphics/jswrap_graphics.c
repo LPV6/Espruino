@@ -34,6 +34,7 @@
 #include "bitmap_font_4x6.h"
 #include "bitmap_font_6x8.h"
 #include "vector_font.h"
+#include "line_font.h"
 
 #ifdef GRAPHICS_PALETTED_IMAGES
 #ifdef ESPR_GRAPHICS_12BIT
@@ -1572,6 +1573,50 @@ JsVarInt jswrap_graphics_stringWidth(JsVar *parent, JsVar *var) {
 #endif
   jsvUnLock(str);
   return width>maxWidth ? width : maxWidth;
+}
+
+/*JSON{
+  "type" : "method",
+  "class" : "Graphics",
+  "name" : "drawLineString",
+  "generate" : "jswrap_graphics_drawLineString",
+  "params" : [
+    ["str","JsVar","The string"],
+    ["x","int32","The X position of the leftmost pixel"],
+    ["y","int32","The Y position of the topmost pixel"],
+    ["options","JsVar","Options for drawing this font"]
+  ],
+  "return" : ["JsVar","The instance of Graphics this was called on, to allow call chaining"],
+  "return_object" : "Graphics"
+}
+Draw a string of text in the current font
+*/
+JsVar *jswrap_graphics_drawLineString(JsVar *parent, JsVar *var, int x, int y, JsVar *options) {
+  JsGraphics gfx; if (!graphicsGetFromVar(&gfx, parent)) return 0;
+
+  int fontHeight = 20;
+
+  int startx = x;
+  JsVar *str = jsvAsString(var);
+  JsvStringIterator it;
+  jsvStringIteratorNew(&it, str, 0);
+  while (jsvStringIteratorHasChar(&it)) {
+    char ch = jsvStringIteratorGetCharAndNext(&it);
+    if (ch=='\n') {
+      x = startx;
+      y += fontHeight;
+      continue;
+    }
+    int w = (int)graphicsLineCharWidth(&gfx, fontHeight, ch);
+    graphicsDrawLineChar(&gfx, x, y, fontHeight, ch);
+
+    x+=w;
+    if (jspIsInterrupted()) break;
+  }
+  jsvStringIteratorFree(&it);
+  jsvUnLock(str);
+  graphicsSetVar(&gfx); // gfx data changed because modified area
+  return jsvLockAgain(parent);
 }
 
 /*JSON{
