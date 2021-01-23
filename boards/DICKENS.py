@@ -60,7 +60,7 @@ info = {
  'link' :  [ "" ],
  'espruino_page_link' : '',
  'variables' : 2500, # How many variables are allocated for Espruino to use. RAM will be overflowed if this number is too high and code won't compile.
-# 'bootloader' : 1,
+ 'bootloader' : 1,
  'binary_name' : 'espruino_%v_dickens.hex',
  'build' : {
    'optimizeflags' : '-Os',
@@ -89,6 +89,7 @@ info = {
      'WRAPPERSOURCES += libs/graphics/jswrap_font_architekt15.c',
      'WRAPPERSOURCES += libs/graphics/jswrap_font_architekt35.c',
      'WRAPPERSOURCES += libs/graphics/jswrap_font_grotesk14.c',
+     'WRAPPERSOURCES += libs/graphics/jswrap_font_grotesk16.c',
      'JSMODULESOURCES += libs/js/banglejs/locale.min.js',
      'DEFINES += -DBANGLEJS',
 
@@ -111,10 +112,10 @@ chip = {
   'adc' : 1,
   'dac' : 0,
   'saved_code' : {
-#    'address' : ((246 - 10) * 4096), # Bootloader takes pages 248-255, FS takes 246-247
-#    'page_size' : 4096,
-#    'pages' : 10,
-#    'flash_available' : 1024 - ((31 + 8 + 2 + 10)*4) # Softdevice uses 31 pages of flash, bootloader 8, FS 2, code 10. Each page is 4 kb.
+ #   'address' : ((246 - 10) * 4096), # Bootloader takes pages 248-255, FS takes 246-247
+ #   'page_size' : 4096,
+ #   'pages' : 10,
+ #   'flash_available' : 1024 - ((31 + 8 + 2 + 10)*4) # Softdevice uses 31 pages of flash, bootloader 8, FS 2, code 10. Each page is 4 kb.
     'address' : 0x60000000, # put this in external spiflash (see below)
     'page_size' : 4096,
     'pages' : 1024, # Entire 4MB of external flash
