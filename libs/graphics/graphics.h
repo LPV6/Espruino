@@ -158,6 +158,7 @@ void graphicsFallbackFillRect(JsGraphics *gfx, int x1, int y1, int x2, int y2, u
 void graphicsDrawRect(JsGraphics *gfx, int x1, int y1, int x2, int y2);
 void graphicsDrawEllipse(JsGraphics *gfx, int x, int y, int x2, int y2);
 void graphicsFillEllipse(JsGraphics *gfx, int x, int y, int x2, int y2);
+void graphicsFillAnnulus(JsGraphics *gfx, int x, int y, int r1, int r2, unsigned short quadrants);
 void graphicsDrawLine(JsGraphics *gfx, int x1, int y1, int x2, int y2);
 void graphicsDrawLineAA(JsGraphics *gfx, int ix1, int iy1, int ix2, int iy2); ///< antialiased drawline. each pixel is 1/16th
 void graphicsFillPoly(JsGraphics *gfx, int points, short *vertices, bool antiAlias); ///< each pixel is 1/16th a pixel may overwrite vertices...

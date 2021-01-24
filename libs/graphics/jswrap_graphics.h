@@ -52,6 +52,8 @@ JsVar *jswrap_graphics_clearRect(JsVar *parent, int x1, int y1, int x2, int y2);
 JsVar *jswrap_graphics_drawRect(JsVar *parent, int x1, int y1, int x2, int y2);
 JsVar *jswrap_graphics_drawCircle(JsVar *parent, int x, int y, int rad);
 JsVar *jswrap_graphics_fillCircle(JsVar *parent, int x, int y, int rad);
+//JsVar *jswrap_graphics_fillAnnulus(JsVar *parent, int x, int y, int r1, int r2, unsigned short quadrants);
+JsVar *jswrap_graphics_fillAnnulus(JsVar *parent, int x, int y, int r1, int r2);
 JsVar *jswrap_graphics_drawEllipse(JsVar *parent, int x, int y, int x2, int y2);
 JsVar *jswrap_graphics_fillEllipse(JsVar *parent, int x, int y, int x2, int y2);
 int jswrap_graphics_getPixel(JsVar *parent, int x, int y);

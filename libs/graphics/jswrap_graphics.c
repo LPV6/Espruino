@@ -620,6 +620,32 @@ Draw a filled circle in the Foreground Color
 /*JSON{
   "type" : "method",
   "class" : "Graphics",
+  "name" : "fillAnnulus",
+  "ifndef" : "SAVE_ON_FLASH",
+  "generate" : "jswrap_graphics_fillAnnulus",
+  "params" : [
+    ["x","int32","The X axis"],
+    ["y","int32","The Y axis"],
+    ["r1","int32","The annulus inner radius"],
+    ["r2","int32","The annulus outer radius"]
+  ],
+  "return" : ["JsVar","The instance of Graphics this was called on, to allow call chaining"],
+  "return_object" : "Graphics"
+}
+Draw a filled annulus in the Foreground Color
+*/ 
+// JsVar *jswrap_graphics_fillAnnulus(JsVar *parent, int x, int y, int r1, int r2, unsigned short quadrants) {  // Too many arguments!
+ JsVar *jswrap_graphics_fillAnnulus(JsVar *parent, int x, int y, int r1, int r2) {
+   JsGraphics gfx; if (!graphicsGetFromVar(&gfx, parent)) return 0;
+   unsigned short quadrants = 0x0F; // Just do all quadrants for now
+   graphicsFillAnnulus(&gfx, x,y,r1,r2,quadrants);
+   graphicsSetVar(&gfx); // gfx data changed because modified area
+   return jsvLockAgain(parent);
+ }
+
+/*JSON{
+  "type" : "method",
+  "class" : "Graphics",
   "name" : "drawCircle",
   "ifndef" : "SAVE_ON_FLASH",
   "generate" : "jswrap_graphics_drawCircle",
