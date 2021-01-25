@@ -1532,8 +1532,8 @@ JsVarInt jswrap_banglejs_getBattery() {
   const JsVarFloat vlo = 0.51;
   const JsVarFloat vhi = 0.62;
 #elif defined(DICKENS)
-  const JsVarFloat vlo = 3.3 / (2.8*2);
-  const JsVarFloat vhi = 3.8 / (2.8*2);
+  const JsVarFloat vlo = 3.1 / (2.8*2);  // Display becomes very dim and starts flickering around 2.9V
+  const JsVarFloat vhi = 4.0 / (2.8*2);  // Fully charged is 4.2V, but drops fairly quickly to 4.0V
 #else
   const JsVarFloat vlo = 0;
   const JsVarFloat vhi = 1;
@@ -1924,22 +1924,31 @@ void jswrap_banglejs_init() {
       h = (int)(unsigned char)jsvGetCharInString(img, 1);
     }
     graphicsSetVar(&gfx);
+    char addrStr[20];
+#ifndef EMSCRIPTEN
+    JsVar *addr = jswrap_ble_getAddress(); // Write MAC address in bottom right
+#else
+    JsVar *addr = jsvNewFromString("");
+#endif
+    jsvGetString(addr, addrStr, sizeof(addrStr));
+    jsvUnLock(addr);
+#if (defined(DICKENS) || defined(EMSCRIPTEN_DICKENS))
+    int y=111;
+    jswrap_graphics_drawCString(&gfx,20,y-10,"---------------");
+    jswrap_graphics_drawCString(&gfx,20,y,"PROJECT DICKENS");
+    jswrap_graphics_drawCString(&gfx,20,y+10,"---------------");
+    jswrap_graphics_drawCString(&gfx,20,y+30,JS_VERSION);
+    jswrap_graphics_drawCString(&gfx,20,y+40,addrStr);
+#else
     int y=(LCD_HEIGHT-h)/2;
     jsvUnLock3(jswrap_graphics_drawImage(graphics,img,(LCD_WIDTH-w)/2,y,imgopts),img,imgopts);
     if (drawInfo) {
       y += h-28;
-      char addrStr[20];
-#ifndef EMSCRIPTEN
-      JsVar *addr = jswrap_ble_getAddress(); // Write MAC address in bottom right
-#else
-      JsVar *addr = jsvNewFromString("");
-#endif
-      jsvGetString(addr, addrStr, sizeof(addrStr));
-      jsvUnLock(addr);
       jswrap_graphics_drawCString(&gfx,8,y,JS_VERSION);
       jswrap_graphics_drawCString(&gfx,8,y+10,addrStr);
-      jswrap_graphics_drawCString(&gfx,8,y+20,"Copyright 2019 G.Williams");
+      jswrap_graphics_drawCString(&gfx,8,y+20,"Copyright 2021 G.Williams");
     }
+#endif
   }
 #ifdef SMAQ3
   lcdMemLCD_flip(&gfx);
