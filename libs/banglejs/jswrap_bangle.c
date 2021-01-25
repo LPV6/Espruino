@@ -1902,6 +1902,9 @@ void jswrap_banglejs_init() {
     showSplashScreen = false;
   }
 
+#ifdef DICKENS
+  if (showSplashScreen)
+#endif
   graphicsClear(&gfx);
   if (showSplashScreen) {
     bool drawInfo = false;
@@ -1950,12 +1953,17 @@ void jswrap_banglejs_init() {
     }
 #endif
   }
+#ifdef DICKENS
+  if (showSplashScreen)
+#endif
+  {
 #ifdef SMAQ3
   lcdMemLCD_flip(&gfx);
 #endif
 #if defined(LCD_CONTROLLER_GC9A01)
   lcdFlip_SPILCD(&gfx);
 #endif
+  }
   graphicsStructResetState(&gfx);
   graphicsSetVar(&gfx);
 
