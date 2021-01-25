@@ -666,6 +666,32 @@ JsVar *jswrap_graphics_drawCircle(JsVar *parent, int x, int y, int rad) {
 /*JSON{
   "type" : "method",
   "class" : "Graphics",
+  "name" : "drawCircleAA",
+  "ifdef" : "GRAPHICS_ANTIALIAS",
+  "generate" : "jswrap_graphics_drawCircleAA",
+  "params" : [
+    ["x","int32","Centre x-coordinate"],
+    ["y","int32","Centre y-coordinate"],
+    ["r","int32","Radius"]
+  ],
+  "return" : ["JsVar","The instance of Graphics this was called on, to allow call chaining"],
+  "return_object" : "Graphics"
+}
+Draw a circle, centred at (x,y) with radius r in the current foreground color
+*/
+#ifdef GRAPHICS_ANTIALIAS
+JsVar *jswrap_graphics_drawCircleAA(JsVar *parent, int x, int y, int r) {
+  JsGraphics gfx; if (!graphicsGetFromVar(&gfx, parent)) return 0;
+  graphicsDrawCircleAA(&gfx, x,y,r);
+  graphicsSetVar(&gfx); // gfx data changed because modified area
+  return jsvLockAgain(parent);
+}
+#endif
+
+
+/*JSON{
+  "type" : "method",
+  "class" : "Graphics",
   "name" : "fillEllipse",
   "ifndef" : "SAVE_ON_FLASH",
   "generate" : "jswrap_graphics_fillEllipse",
@@ -1652,6 +1678,7 @@ JsVar *jswrap_graphics_drawLineAA(JsVar *parent, double x1, double y1, double x2
   return jsvLockAgain(parent);
 }
 #endif
+
 
 /*JSON{
   "type" : "method",
@@ -2675,6 +2702,33 @@ don't support pixel reads.
 JsVar *jswrap_graphics_scroll(JsVar *parent, int xdir, int ydir) {
   JsGraphics gfx; if (!graphicsGetFromVar(&gfx, parent)) return 0;
   graphicsScroll(&gfx, xdir, ydir);
+  // update modified area
+  graphicsSetVar(&gfx);
+  return jsvLockAgain(parent);
+}
+
+/*JSON{
+  "type" : "method",
+  "class" : "Graphics",
+  "name" : "scrollClipRect",
+  "#if" : "!defined(SAVE_ON_FLASH) && !defined(ESPRUINOBOARD)",
+  "generate" : "jswrap_graphics_scrollClipRect",
+  "params" : [
+    ["x","int32","X direction. >0 = to right"],
+    ["y","int32","Y direction. >0 = down"]
+  ],
+  "return" : ["JsVar","The instance of Graphics this was called on, to allow call chaining"],
+  "return_object" : "Graphics"
+}
+Scroll the contents of the clip rectangle (set with setClipRect) in a certain direction. The 
+remaining area is filled with the background color.
+
+Note: This uses repeated pixel reads and writes, so will not work on platforms that
+don't support pixel reads.
+*/
+JsVar *jswrap_graphics_scrollClipRect(JsVar *parent, int xdir, int ydir) {
+  JsGraphics gfx; if (!graphicsGetFromVar(&gfx, parent)) return 0;
+  graphicsScrollClipRect(&gfx, xdir, ydir);
   // update modified area
   graphicsSetVar(&gfx);
   return jsvLockAgain(parent);

@@ -116,6 +116,7 @@ typedef struct JsGraphics {
   void (*fillRect)(struct JsGraphics *gfx, int x1, int y1, int x2, int y2, unsigned int col); ///< x/y guaranteed to be in range
   unsigned int (*getPixel)(struct JsGraphics *gfx, int x, int y); ///< x/y guaranteed to be in range
   void (*scroll)(struct JsGraphics *gfx, int xdir, int ydir); ///< scroll - leave unscrolled area undefined (xdir/ydir guaranteed to be in range)
+  void (*scrollClipRect)(struct JsGraphics *gfx, int xdir, int ydir); ///< scroll clip rectangle - leave unscrolled area undefined (xdir/ydir guaranteed to be in range)
 } PACKED_FLAGS JsGraphics;
 typedef void (*JsGraphicsSetPixelFn)(struct JsGraphics *gfx, int x, int y, unsigned int col);
 
@@ -161,6 +162,7 @@ void graphicsFillEllipse(JsGraphics *gfx, int x, int y, int x2, int y2);
 void graphicsFillAnnulus(JsGraphics *gfx, int x, int y, int r1, int r2, unsigned short quadrants);
 void graphicsDrawLine(JsGraphics *gfx, int x1, int y1, int x2, int y2);
 void graphicsDrawLineAA(JsGraphics *gfx, int ix1, int iy1, int ix2, int iy2); ///< antialiased drawline. each pixel is 1/16th
+void graphicsDrawCircleAA(JsGraphics *gfx, int x, int y, int r);
 void graphicsFillPoly(JsGraphics *gfx, int points, short *vertices, bool antiAlias); ///< each pixel is 1/16th a pixel may overwrite vertices...
 #ifndef NO_VECTOR_FONT
 unsigned int graphicsFillVectorChar(JsGraphics *gfx, int x1, int y1, int size, char ch); ///< prints character, returns width
@@ -170,6 +172,8 @@ unsigned int graphicsVectorCharWidth(JsGraphics *gfx, unsigned int size, char ch
 void graphicsDrawImage1bpp(JsGraphics *gfx, int x1, int y1, int width, int height, const unsigned char *pixelData);
 /// Scroll the graphics device (in user coords). X>0 = to right, Y >0 = down
 void graphicsScroll(JsGraphics *gfx, int xdir, int ydir);
+/// Scroll the clip rectangle (in user coords). X>0 = to right, Y >0 = down
+void graphicsScrollClipRect(JsGraphics *gfx, int xdir, int ydir);
 
 void graphicsSplash(JsGraphics *gfx); ///< splash screen
 

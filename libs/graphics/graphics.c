@@ -99,6 +99,43 @@ void graphicsFallbackScroll(JsGraphics *gfx, int xdir, int ydir) {
 #endif
 }
 
+void graphicsFallbackScrollXClipRect(JsGraphics *gfx, int xdir, int yfrom, int yto) {
+  int x;
+  int clipWidth = (gfx->data.clipRect.x2-gfx->data.clipRect.x1);
+  int x1 = gfx->data.clipRect.x1;
+  int y1 = gfx->data.clipRect.y1;
+  if (xdir<=0) {
+    int w = clipWidth+xdir;
+    for (x=0;x<w;x++)
+      gfx->setPixel(gfx, (int)(x+x1),(int)(yto+y1),
+          gfx->getPixel(gfx, (int)(x+x1-xdir),(int)(yfrom+y1)));
+  } else { // >0
+    for (x=clipWidth-xdir-1;x>=0;x--)
+      gfx->setPixel(gfx, (int)(x+xdir+x1),(int)(yto+y1),
+          gfx->getPixel(gfx, (int)(x+x1),(int)(yfrom+y1)));
+  }
+}
+
+void graphicsFallbackScrollClipRect(JsGraphics *gfx, int xdir, int ydir) {
+  if (xdir==0 && ydir==0) return;
+  int clipHeight = (gfx->data.clipRect.y2-gfx->data.clipRect.y1);
+  int y;
+  if (ydir<=0) {
+    int h = clipHeight+ydir;
+    for (y=0;y<h;y++)
+      graphicsFallbackScrollXClipRect(gfx, xdir, y-ydir, y);
+  } else { // >0
+    for (y=clipHeight-ydir-1;y>=0;y--)
+      graphicsFallbackScrollXClipRect(gfx, xdir, y, y+ydir);
+  }
+#ifndef NO_MODIFIED_AREA
+  gfx->data.modMinX=0;
+  gfx->data.modMinY=0;
+  gfx->data.modMaxX=(short)(gfx->data.width-1);
+  gfx->data.modMaxY=(short)(gfx->data.height-1);
+#endif
+}
+
 // ----------------------------------------------------------------------------------------------
 
 void graphicsStructResetState(JsGraphics *gfx) {
@@ -147,6 +184,7 @@ bool graphicsGetFromVar(JsGraphics *gfx, JsVar *parent) {
     gfx->getPixel = graphicsFallbackGetPixel;
     gfx->fillRect = graphicsFallbackFillRect;
     gfx->scroll = graphicsFallbackScroll;
+    gfx->scrollClipRect = graphicsFallbackScrollClipRect;
 #ifdef USE_LCD_SDL
     if (gfx->data.type == JSGRAPHICSTYPE_SDL) {
       lcdSetCallbacks_SDL(gfx);
@@ -211,6 +249,7 @@ size_t graphicsGetMemoryRequired(const JsGraphics *gfx) {
 
 // If graphics is flipped or rotated then the coordinates need modifying
 void graphicsToDeviceCoordinates(const JsGraphics *gfx, int *x, int *y) {
+#ifndef DICKENS // For Dickens, we can use Bangle.lcdWr(0x36, xxx) to set the screen rotation
   if (gfx->data.flags & JSGRAPHICSFLAGS_SWAP_XY) {
     int t = *x;
     *x = *y;
@@ -218,10 +257,12 @@ void graphicsToDeviceCoordinates(const JsGraphics *gfx, int *x, int *y) {
   }
   if (gfx->data.flags & JSGRAPHICSFLAGS_INVERT_X) *x = (int)(gfx->data.width - (*x+1));
   if (gfx->data.flags & JSGRAPHICSFLAGS_INVERT_Y) *y = (int)(gfx->data.height - (*y+1));
+#endif
 }
 
 // If graphics is flipped or rotated then the coordinates need modifying
 void graphicsToDeviceCoordinates16x(const JsGraphics *gfx, int *x, int *y) {
+#ifndef DICKENS // For Dickens, we can use Bangle.lcdWr(0x36, xxx) to set the screen rotation
   if (gfx->data.flags & JSGRAPHICSFLAGS_SWAP_XY) {
     int t = *x;
     *x = *y;
@@ -229,6 +270,7 @@ void graphicsToDeviceCoordinates16x(const JsGraphics *gfx, int *x, int *y) {
   }
   if (gfx->data.flags & JSGRAPHICSFLAGS_INVERT_X) *x = (int)((gfx->data.width-1)*16 - *x);
   if (gfx->data.flags & JSGRAPHICSFLAGS_INVERT_Y) *y = (int)((gfx->data.height-1)*16 - *y);
+#endif
 }
 
 unsigned short graphicsGetWidth(const JsGraphics *gfx) {
@@ -629,6 +671,45 @@ void graphicsDrawLineAA(JsGraphics *gfx, int ix1, int iy1, int ix2, int iy2) {
     intery += gradient;
   }
 }
+
+void graphicsDrawCircleAA(JsGraphics *gfx, int x0, int y0, int r){
+  graphicsToDeviceCoordinates(gfx, &x0, &y0);
+  int x = -r;
+  int y = 0;
+  int err = 2-2*r;
+  int i, x2, e2;
+  r = 1-err;
+  do {
+     i = 255-255*abs(err-2*(x+y)-2)/r;  
+     graphicsSetPixelDeviceBlended(gfx, x0-x, y0+y, i);
+     graphicsSetPixelDeviceBlended(gfx, x0-y, y0-x, i);
+     graphicsSetPixelDeviceBlended(gfx, x0+x, y0-y, i);
+     graphicsSetPixelDeviceBlended(gfx, x0+y, y0+x, i);
+     e2 = err;
+     x2 = x;
+     if (err+y > 0) {               // X step
+        i = 255-255*(err-2*x-1)/r;  // Outward pixel
+        if (i > 0) {
+           graphicsSetPixelDeviceBlended(gfx, x0-x, y0+y+1, i);
+           graphicsSetPixelDeviceBlended(gfx, x0-y-1, y0-x, i);
+           graphicsSetPixelDeviceBlended(gfx, x0+x, y0-y-1, i);
+           graphicsSetPixelDeviceBlended(gfx, x0+y+1, y0+x, i);
+        }
+        err += ++x*2+1;
+     }
+     if (e2+x2 <= 0) {              // Y step
+        i = 255-255*(2*y+3-e2)/r;   // Inward pixel
+        if (i > 0) {
+           graphicsSetPixelDeviceBlended(gfx, x0-x2-1, y0+y, i);
+           graphicsSetPixelDeviceBlended(gfx, x0-y, y0-x2-1, i);
+           graphicsSetPixelDeviceBlended(gfx, x0+x2+1, y0-y, i);
+           graphicsSetPixelDeviceBlended(gfx, x0+y, y0+x2+1, i);
+        }
+        err += ++y*2+1;
+     }
+  } while (x < 0);
+}
+
 #endif
 
 // Fill poly - each member of vertices is 1/16th pixel
@@ -769,6 +850,35 @@ void graphicsScroll(JsGraphics *gfx, int xdir, int ydir) {
   else if (xdir<0) gfx->fillRect(gfx,gfx->data.width+xdir,0,gfx->data.width-1,gfx->data.height-1, gfx->data.bgColor);
   if (ydir>0) gfx->fillRect(gfx,0,0,gfx->data.width-1,ydir-1, gfx->data.bgColor);
   else if (ydir<0) gfx->fillRect(gfx,0,gfx->data.height+ydir,gfx->data.width-1,gfx->data.height-1, gfx->data.bgColor);
+}
+
+/// Scroll the clip rectangle (in user coords). X>0 = to right, Y >0 = down
+void graphicsScrollClipRect(JsGraphics *gfx, int xdir, int ydir) {
+  // Ensure we flip coordinate system if needed
+  int x1 = 0, y1 = 0;
+  int x2 = xdir, y2 = ydir;
+  int x0 = gfx->data.clipRect.x1;
+  int y0 = gfx->data.clipRect.y1;
+  int clipWidth = gfx->data.clipRect.x2 - gfx->data.clipRect.x1;
+  int clipHeight = gfx->data.clipRect.y2 - gfx->data.clipRect.y1;
+
+  graphicsToDeviceCoordinates(gfx, &x1, &y1);
+  graphicsToDeviceCoordinates(gfx, &x2, &y2);
+  xdir = x2-x1;
+  ydir = y2-y1;
+  // range check - if too big no point scrolling
+  bool scroll = true;
+  if (xdir>clipWidth) { xdir=clipWidth; scroll=false; }
+  if (xdir<-clipWidth) { xdir=-clipWidth; scroll=false; }
+  if (ydir>clipHeight) { ydir=clipHeight; scroll=false; }
+  if (ydir<-clipHeight) { ydir=-clipHeight; scroll=false; }
+  // do the scrolling
+  if (scroll) gfx->scrollClipRect(gfx, xdir, ydir);
+  // fill the new area
+  if (xdir>0) gfx->fillRect(gfx,x0,y0,x0+xdir-1,y0+clipHeight-1, gfx->data.bgColor);
+  else if (xdir<0) gfx->fillRect(gfx,x0+clipWidth+xdir,y0,x0+clipWidth-1,y0+clipHeight-1, gfx->data.bgColor);
+  if (ydir>0) gfx->fillRect(gfx,x0,y0,x0+clipWidth-1,y0+ydir-1, gfx->data.bgColor);
+  else if (ydir<0) gfx->fillRect(gfx,x0,y0+clipHeight+ydir,x0+clipWidth-1,y0+clipHeight-1, gfx->data.bgColor);
 }
 
 static void graphicsDrawString(JsGraphics *gfx, int x1, int y1, const char *str) {
