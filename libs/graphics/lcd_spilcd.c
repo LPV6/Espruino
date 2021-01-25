@@ -246,9 +246,9 @@ void lcdInit_SPILCD(JsGraphics *gfx) {
   jshPinOutput(LCD_SPI_SCK,1);
   jshPinOutput(LCD_SPI_MOSI,1);
   jshPinOutput(LCD_SPI_RST,1);
-  jshDelayMicroseconds(10000);
+  jshDelayMicroseconds(1000);
   jshPinOutput(LCD_SPI_RST, 1);
-  jshDelayMicroseconds(10000);
+  jshDelayMicroseconds(2000);
 
   JshSPIInfo inf;
   jshSPIInitInfo(&inf);
