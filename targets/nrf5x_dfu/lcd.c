@@ -694,18 +694,20 @@ void lcd_flip() {
   }
   ymin=LCD_HEIGHT;
   ymax=0;
+  jshPinOutput(LCD_BL, LCD_BL_ON); // backlight on
 }
 
 void lcd_init() {
 #ifdef GPS_PIN_EN
   jshPinOutput(GPS_PIN_EN,1); // GPS off
 #endif
-  jshPinOutput(LCD_BL, LCD_BL_ON); // backlight on
+//  jshPinOutput(LCD_BL, LCD_BL_ON); // Don't turn the backlight on yet, otherwise it could show garbage - do it at the end of lcd_flip() instead
 #ifdef LCD_EN
   jshPinOutput(LCD_EN,1); // enable on
 #endif
   // LCD Init 1
   jshPinOutput(LCD_SPI_CS,1);
+
   jshPinOutput(LCD_SPI_DC,1);
   jshPinOutput(LCD_SPI_SCK,1);
   jshPinOutput(LCD_SPI_MOSI,1);
