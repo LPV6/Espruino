@@ -3074,9 +3074,10 @@ void jswrap_banglejs_softOff() {
   IOEventFlags channel = jshPinWatch(BTN1_PININDEX, true);
   if (channel!=EV_NONE) jshSetEventCallback(channel, jshHadEvent);
   // keep sleeping until a button is pressed
+  jshKickWatchDog();
   while (!jshPinGetValue(BTN1_PININDEX)) {
     jshKickWatchDog();
-    jshSleep(jshGetTimeFromMilliseconds(2*1000));
+    jshSleep(jshGetTimeFromMilliseconds(4*1000));
   }
   // restart
   jshReboot();
