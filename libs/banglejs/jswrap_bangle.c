@@ -2709,6 +2709,12 @@ void jswrap_banglejs_ioWr(JsVarInt mask, bool on) {
 }
 #endif
 
+static int twosComplement(int val, unsigned char bits) {
+  if (val & ((unsigned int)1 << (bits - 1))) {
+    val -= (unsigned int)1 << bits;
+  }
+  return val;
+}
 
 /*JSON{
     "type" : "staticmethod",
@@ -2721,7 +2727,7 @@ void jswrap_banglejs_ioWr(JsVarInt mask, bool on) {
 Read temperature, pressure and altitude data. A promise is returned
 which will be resolved with `{temperature, pressure, altitude}`.
 
-Conversions take roughly 100ms.
+Conversions take roughly 100ms.  Altitude assumes a sea-level pressure of 1013.25 hPa
 
 ```
 Bangle.getPressure().then(d=>{
@@ -2757,46 +2763,50 @@ void jswrap_banglejs_getPressure_callback() {
     jsvObjectSetChildAndUnLock(o,"altitude", jsvNewFromFloat(altitude/100.0));
 #endif
 #ifdef PRESSURE_DEVICE_SPL06_007
-    unsigned char buf[18];
+    #include "barometer_SPL06_007.h"
+    static int oversample_scalefactor[] = {524288, 1572864, 3670016, 7864320, 253952, 516096, 1040384, 2088960};
+    unsigned char buf[SPL06_COEF_NUM];
+
     // status values
-    buf[0] = 0x08; jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true);
+    buf[0] = SPL06_MEASCFG; jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true);
     jsi2cRead(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true);
     int status = buf[0]; // if top 4 bits are set we've got all the data
+
     // constants
-    buf[0] = 0x10; jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true);
-    jsi2cRead(PRESSURE_I2C, PRESSURE_ADDR, 18, buf, true);
-    int c0 = (buf[0]<<4) | (buf[1]>>4);
-    if (c0 & 0x800) c0 -= 0x1000;
-    int c1 = ((buf[1]&0x0F)<<8) | buf[2];
-    if (c1 & 0x800) c1 -= 0x1000;
-    int c00 = (buf[3]<<12) | (buf[4]<<4) || (buf[5] >> 4);
-    if (c00 & 0x80000) c00 -= 0x100000; // 20 bit! Says it's 16 bit signed in docs
-    int c10 = ((buf[5]&0x0F)<<16) | (buf[6]<<8) || buf[7];
-    if (c10 & 0x80000) c10 -= 0x100000; // 20 bit! Says it's 16 bit signed in docs
-    int c01 = (buf[8]<<8) | buf[9];
-    if (c01 & 0x8000) c01 -= 0x10000;
-    int c11 = (buf[10]<<8) | buf[11];
-    if (c11 & 0x8000) c11 -= 0x10000;
-    int c20 = (buf[12]<<8) | buf[13];
-    if (c20 & 0x8000) c20 -= 0x10000;
-    int c21 = (buf[14]<<8) | buf[15];
-    if (c21 & 0x8000) c21 -= 0x10000;
-    int c30 = (buf[16]<<8) | buf[17];
-    if (c30 & 0x8000) c30 -= 0x10000;
+    buf[0] = SPL06_COEF_START; jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true);
+    jsi2cRead(PRESSURE_I2C, PRESSURE_ADDR, SPL06_COEF_NUM, buf, true);
+
+    int c0 = ((unsigned short)buf[0] << 4) | (((unsigned short)buf[1] >> 4) & 0x0F);
+    c0 = twosComplement(c0, 12);
+
+    int c1 = twosComplement((((unsigned short)buf[1] & 0x0F) << 8) | buf[2], 12);
+
+    int c00 = ((unsigned int)buf[3] << 12) | ((unsigned int)buf[4] << 4) | (((unsigned int)buf[5] >> 4) & 0x0F);
+    c00 = twosComplement(c00, 20);
+
+    int c10 = (((unsigned int)buf[5] & 0x0F) << 16) | ((unsigned int)buf[6] << 8) | (unsigned int)buf[7];
+    c10 = twosComplement(c10, 20);
+
+    int c01 = twosComplement(((unsigned short)buf[8] << 8) | (unsigned short)buf[9], 16);
+    int c11 = twosComplement(((unsigned short)buf[10] << 8) | (unsigned short)buf[11], 16);
+    int c20 = twosComplement(((unsigned short)buf[12] << 8) | (unsigned short)buf[13], 16);
+    int c21 = twosComplement(((unsigned short)buf[14] << 8) | (unsigned short)buf[15], 16);
+    int c30 = twosComplement(((unsigned short)buf[16] << 8) | (unsigned short)buf[17], 16);
 
     // raw values
-    buf[0] = 0; jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true);
+    buf[0] = SPL06_PRSB2; jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true);
     jsi2cRead(PRESSURE_I2C, PRESSURE_ADDR, 6, buf, true);
     int praw = (buf[0]<<16)|(buf[1]<<8)|buf[2];
-    if (praw & 0x800000) praw -= 0x1000000;
+    praw = twosComplement(praw, 24);
     int traw = (buf[3]<<16)|(buf[4]<<8)|buf[5];
-    if (traw & 0x800000) traw -= 0x1000000;
+    traw = twosComplement(traw, 24);
+
     // disable sensor
-    buf[0] = 0x08; buf[1] = 0x00; // MEAS_CFG idle
+    buf[0] = SPL06_MEASCFG; buf[1] = 0x00; // MEAS_CFG idle
     jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 2, buf, true);
 
-    double traw_scaled = traw / 7864320.0; // temperature oversample by 8x
-    double praw_scaled = praw / 7864320.0; // pressure oversample by 8x
+    double traw_scaled = (double)traw / oversample_scalefactor[SPL06_8SAMPLES]; // temperature oversample by 8x
+    double praw_scaled = (double)praw / oversample_scalefactor[SPL06_8SAMPLES]; // pressure oversample by 8x
     double temperature = (c0/2) + (c1*traw_scaled);
     double pressure = (c00 + praw_scaled * (c10 + praw_scaled * (c20 + praw_scaled * c30)) +
                        traw_scaled * c01 +
@@ -2809,7 +2819,8 @@ void jswrap_banglejs_getPressure_callback() {
     double seaLevelPressure = 1013.25; // Standard atmospheric pressure
     double altitude = 44330 * (1.0 - jswrap_math_pow(pressure / seaLevelPressure, 0.1903));
     jsvObjectSetChildAndUnLock(o,"altitude", jsvNewFromFloat(altitude));
-    // debugging
+#ifdef DEBUG_PRESSURE_SENSOR
+    // debugging 
     jsvObjectSetChildAndUnLock(o,"status", jsvNewFromInteger(status));
     jsvObjectSetChildAndUnLock(o,"traw", jsvNewFromInteger(traw));
     jsvObjectSetChildAndUnLock(o,"praw", jsvNewFromInteger(praw));
@@ -2821,6 +2832,7 @@ void jswrap_banglejs_getPressure_callback() {
     jsvObjectSetChildAndUnLock(o,"c11", jsvNewFromInteger(c11));
     jsvObjectSetChildAndUnLock(o,"c20", jsvNewFromInteger(c20));
     jsvObjectSetChildAndUnLock(o,"c30", jsvNewFromInteger(c30));
+#endif
 #endif
     i2cBusy = false;
     jspromise_resolve(promisePressure, o);
@@ -2838,15 +2850,15 @@ JsVar *jswrap_banglejs_getPressure() {
   if (!promisePressure) return 0;
   unsigned char buf[6];
 #ifdef PRESSURE_DEVICE_SPL06_007
-  buf[0] = 0x06; buf[1] = 0x03; // pressure oversample by 8x, 1 measurement per second
+  buf[0] = SPL06_PRSCFG; buf[1] = 0x33; // pressure oversample by 8x, 8 measurement per second
   jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 2, buf, true);
-  buf[0] = 0x07; buf[1] = 0X83; // temperature oversample by 8x, 1 measurement per second, external sensor
+  buf[0] = SPL06_TMPCFG; buf[1] = 0xB3; // temperature oversample by 8x, 8 measurements per second, external sensor
   jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 2, buf, true);
-  buf[0] = 0x08; buf[1] = 0x07; // MEAS_CFG continuous temperature and pressure measurement
+  buf[0] = SPL06_MEASCFG; buf[1] = 0x07; // MEAS_CFG continuous temperature and pressure measurement
   jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 2, buf, true);
-  // should now start taking readins immediately
+  // should now start taking readings immediately
 #endif
-  jsiSetTimeout(jswrap_banglejs_getPressure_callback, 500);
+  jsiSetTimeout(jswrap_banglejs_getPressure_callback, 100);
   return jsvLockAgain(promisePressure);
 }
 #endif
