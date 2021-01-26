@@ -399,8 +399,16 @@ JshI2CInfo i2cInternal;
 #endif
 
 #ifdef PRESSURE_I2C
+#ifdef PRESSURE_DEVICE_SPL06_007
+    #include "barometer_SPL06_007.h"
+#endif
 /// Promise when pressure is requested
 JsVar *promisePressure;
+/// Is the barometer "power" on (i.e. not in standby mode)?
+bool barometerPowerOn;
+/// Calibration coefficients
+short barometer_c0, barometer_c1, barometer_c01, barometer_c11, barometer_c20, barometer_c21, barometer_c30;
+int barometer_c00, barometer_c10;
 #endif
 
 #ifndef EMSCRIPTEN
@@ -1699,6 +1707,32 @@ void jswrap_banglejs_setCompassPower(bool isOn) {
 /*JSON{
     "type" : "staticmethod",
     "class" : "Bangle",
+    "name" : "setBarometerPower",
+    "generate" : "jswrap_banglejs_setBarometerPower",
+    "params" : [
+      ["isOn","bool","True if the barometer IC should be on, false if not"]
+    ],
+    "ifdef" : "BANGLEJS"
+}
+Set the power to the barometer IC
+
+When on, the barometer draws roughly 50uA
+*/
+void jswrap_banglejs_setBarometerPower(bool isOn) {
+  barometerPowerOn = isOn;
+#ifdef PRESSURE_DEVICE_SPL06_007
+  jswrap_banglejs_barometerWr(SPL06_MEASCFG,isOn ? 7 : 0); // continuous pressure and temperature measurement
+  if (isOn) {
+// TODO: Add read-out of calibration values, etc.
+  }
+#endif
+}
+
+
+
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "Bangle",
     "name" : "getCompass",
     "generate" : "jswrap_banglejs_getCompass",
     "return" : ["JsVar","An object containing magnetometer readings (as below)"],
@@ -2662,6 +2696,66 @@ JsVar *jswrap_banglejs_accelRd(JsVarInt reg, JsVarInt cnt) {
 /*JSON{
     "type" : "staticmethod",
     "class" : "Bangle",
+    "name" : "barometerWr",
+    "generate" : "jswrap_banglejs_barometerWr",
+    "params" : [
+      ["reg","int",""],
+      ["data","int",""]
+    ],
+    "ifdef" : "BANGLEJS"
+}
+Writes a register on the barometer IC
+*/
+void jswrap_banglejs_barometerWr(JsVarInt reg, JsVarInt data) {
+#ifdef PRESSURE_I2C
+  unsigned char buf[2];
+  buf[0] = (unsigned char)reg;
+  buf[1] = (unsigned char)data;
+  i2cBusy = true;
+  jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 2, buf, true);
+  i2cBusy = false;
+#endif
+}
+
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "Bangle",
+    "name" : "barometerRd",
+    "generate" : "jswrap_banglejs_barometerRd",
+    "params" : [
+      ["reg","int",""],
+      ["cnt","int","If specified, `barometerRd` returns and array of the given length (max 48). If not (or 0) it returns a number"]
+    ],
+    "return" : ["JsVar",""],
+    "ifdef" : "BANGLEJS"
+}
+Reads a register from the barometer IC
+*/
+JsVar *jswrap_banglejs_barometerRd(JsVarInt reg, JsVarInt cnt) {
+#ifdef PRESSURE_I2C
+  if (cnt<0) cnt=0;
+  unsigned char buf[48];
+  if (cnt>sizeof(buf)) cnt=sizeof(buf);
+  buf[0] = (unsigned char)reg;
+  i2cBusy = true;
+  jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true);
+  jsi2cRead(PRESSURE_I2C, PRESSURE_ADDR, (cnt==0)?1:cnt, buf, true);
+  i2cBusy = false;
+  if (cnt) {
+    JsVar *ab = jsvNewArrayBufferWithData(cnt, buf);
+    JsVar *d = jswrap_typedarray_constructor(ARRAYBUFFERVIEW_UINT8, ab,0,0);
+    jsvUnLock(ab);
+    return d;
+  } else return jsvNewFromInteger(buf[0]);
+#else
+  return 0;
+#endif
+}
+
+
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "Bangle",
     "name" : "compassWr",
     "generate" : "jswrap_banglejs_compassWr",
     "params" : [
@@ -2763,7 +2857,6 @@ void jswrap_banglejs_getPressure_callback() {
     jsvObjectSetChildAndUnLock(o,"altitude", jsvNewFromFloat(altitude/100.0));
 #endif
 #ifdef PRESSURE_DEVICE_SPL06_007
-    #include "barometer_SPL06_007.h"
     static int oversample_scalefactor[] = {524288, 1572864, 3670016, 7864320, 253952, 516096, 1040384, 2088960};
     unsigned char buf[SPL06_COEF_NUM];
 
@@ -3033,7 +3126,9 @@ static void jswrap_banglejs_periph_off() {
 #ifdef MAG_DEVICE_GMC303
   jswrap_banglejs_compassWr(0x31,0); // compass off
 #endif
-
+#ifdef PRESSURE_DEVICE_SPL06_007
+  jswrap_banglejs_barometerWr(SPL06_MEASCFG, 0); // Barometer off
+#endif
 
 #ifdef BTN2_PININDEX
   nrf_gpio_cfg_sense_set(BTN2_PININDEX, NRF_GPIO_PIN_NOSENSE);

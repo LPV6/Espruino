@@ -36,14 +36,14 @@ typedef enum {
 
 /** The  oversample rate ranges */
 typedef enum {
-  SPL06_1SAMPLE,    ///< 1 Hz
-  SPL06_2SAMPLES,   ///< 2 Hz
-  SPL06_4SAMPLES,   ///< 4 Hz
-  SPL06_8SAMPLES,   ///< 8 Hz
-  SPL06_16SAMPLES,  ///< 16 Hz
-  SPL06_32SAMPLES,  ///< 32 Hz
-  SPL06_64SAMPLES,  ///< 64 Hz
-  SPL06_128SAMPLES, ///< 128 Hz
+  SPL06_1SAMPLE,    ///< 1 x oversampling
+  SPL06_2SAMPLES,   ///< 2 x oversampling
+  SPL06_4SAMPLES,   ///< 4 x oversampling
+  SPL06_8SAMPLES,   ///< 8 x oversampling
+  SPL06_16SAMPLES,  ///< 16 x oversampling
+  SPL06_32SAMPLES,  ///< 32 x oversampling
+  SPL06_64SAMPLES,  ///< 64 x oversampling
+  SPL06_128SAMPLES, ///< 128 x oversampling
 } spl06_oversample_t;
 
 /** The  oversample rate ranges */
