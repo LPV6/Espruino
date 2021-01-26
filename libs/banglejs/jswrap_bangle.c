@@ -451,10 +451,12 @@ JsSysTime lcdWakeButtonTime;
 bool lcdPowerOn;
 /// LCD Brightness - 255=full
 uint8_t lcdBrightness;
+#ifdef MAG_I2C
 /// Is the compass on?
 bool compassPowerOn;
 // compass data
 Vector3 mag, magmin, magmax;
+#endif
 /// accelerometer data
 Vector3 acc;
 /// squared accelerometer magnitude
@@ -799,8 +801,14 @@ void peripheralPollHandler() {
           powerSaveTimer += pollInterval;
         if (powerSaveTimer >= POWER_SAVE_TIMEOUT && // stationary for POWER_SAVE_TIMEOUT
             pollInterval == DEFAULT_ACCEL_POLL_INTERVAL && // we are in high power mode
-            !(bangleFlags & JSBF_ACCEL_LISTENER) // nothing was listening to accelerometer data
-            ) {
+            !(bangleFlags & JSBF_ACCEL_LISTENER) && // nothing was listening to accelerometer data
+#ifdef PRESSURE_I2C
+            !barometerPowerOn && // barometer isn't on (streaming uses peripheralPollHandler)
+#endif
+#ifdef MAG_I2C
+            !compassPowerOn && // compass isn't on (streaming uses peripheralPollHandler)
+#endif
+            true) {
           bangleTasks |= JSBT_ACCEL_INTERVAL_POWERSAVE;
           jshHadEvent();
         }
@@ -2100,12 +2108,14 @@ void jswrap_banglejs_init() {
   // Accelerometer variables init
   stepCounter = 0;
   stepWasLow = false;
+#ifdef MAG_I2C
 #ifdef MAG_DEVICE_GMC303
   // compass init
   jswrap_banglejs_compassWr(0x32,1); // soft reset
   jswrap_banglejs_compassWr(0x31,0); // power down mode
 #endif
   compassPowerOn = false;
+#endif
   i2cBusy = false;
   // Other IO
 #ifdef BAT_PIN_CHARGING

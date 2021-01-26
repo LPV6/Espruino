@@ -30,6 +30,8 @@
             Bangle.js: Make the 'home' button more configurable in code
             Bangle.js: Add Bangle.softOff to allow the RTC to keep running
             nRF52: Allow devices to remember the time between reboots (even if RTC is reset)
+            Bangle.js: Don't enter accelerometer power save mode if compass/barometer is in use
+            Watches: Allow streaming pressure data from Barometer
  
      2v08 : nRF52: Added option to build in I2C slave support
             Fix Tensorflow aiGesture regression from 2v07 (re-add opcodes) (fix #1936)
