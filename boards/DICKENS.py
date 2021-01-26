@@ -59,14 +59,13 @@ info = {
  'name' : "DICKENS",
  'link' :  [ "" ],
  'espruino_page_link' : '',
- 'variables' : 2500, # How many variables are allocated for Espruino to use. RAM will be overflowed if this number is too high and code won't compile.
+ 'variables' : 5000, # How many variables are allocated for Espruino to use. RAM will be overflowed if this number is too high and code won't compile.
  'bootloader' : 1,
  'binary_name' : 'espruino_%v_dickens.hex',
  'build' : {
    'optimizeflags' : '-Os',
    'libraries' : [
      'BLUETOOTH',
-     'TERMINAL',
      'GRAPHICS',
      'LCD_SPI'
    ],
@@ -79,13 +78,18 @@ info = {
      'DFU_PRIVATE_KEY=targets/nrf5x_dfu/dfu_private_key.pem',
      'DFU_SETTINGS=--application-version 0xff --hw-version 52 --sd-req 0xA9', # SD 6.0.0
 
-     'DEFINES+=-DBLUETOOTH_NAME_PREFIX=\'"Bangle.js"\'',
+     'DEFINES+=-DBLUETOOTH_NAME_PREFIX=\'"Dickens"\'',
      'DEFINES+=-DCUSTOM_GETBATTERY=jswrap_banglejs_getBattery',
      'DEFINES+=-DDUMP_IGNORE_VARIABLES=\'"g\\0"\'',
      'DEFINES+=-DUSE_FONT_6X8 -DGRAPHICS_PALETTED_IMAGES -DESPR_GRAPHICS_12BIT -DGRAPHICS_ANTIALIAS',
      'DEFINES+=-DNO_DUMP_HARDWARE_INITIALISATION', # don't dump hardware init - not used and saves 1k of flash
      'INCLUDE += -I$(ROOT)/libs/banglejs -I$(ROOT)/libs/misc',
      'WRAPPERSOURCES += libs/banglejs/jswrap_bangle.c',
+     'WRAPPERSOURCES += libs/graphics/jswrap_font_architekt10.c',
+     'WRAPPERSOURCES += libs/graphics/jswrap_font_architekt15.c',
+     'WRAPPERSOURCES += libs/graphics/jswrap_font_architekt35.c',
+     'WRAPPERSOURCES += libs/graphics/jswrap_font_grotesk14.c',
+     'WRAPPERSOURCES += libs/graphics/jswrap_font_grotesk16.c',
      'JSMODULESOURCES += libs/js/banglejs/locale.min.js',
      'DEFINES += -DBANGLEJS',
 
@@ -108,10 +112,10 @@ chip = {
   'adc' : 1,
   'dac' : 0,
   'saved_code' : {
-#    'address' : ((246 - 10) * 4096), # Bootloader takes pages 248-255, FS takes 246-247
-#    'page_size' : 4096,
-#    'pages' : 10,
-#    'flash_available' : 1024 - ((31 + 8 + 2 + 10)*4) # Softdevice uses 31 pages of flash, bootloader 8, FS 2, code 10. Each page is 4 kb.
+ #   'address' : ((246 - 10) * 4096), # Bootloader takes pages 248-255, FS takes 246-247
+ #   'page_size' : 4096,
+ #   'pages' : 10,
+ #   'flash_available' : 1024 - ((31 + 8 + 2 + 10)*4) # Softdevice uses 31 pages of flash, bootloader 8, FS 2, code 10. Each page is 4 kb.
     'address' : 0x60000000, # put this in external spiflash (see below)
     'page_size' : 4096,
     'pages' : 1024, # Entire 4MB of external flash
@@ -120,10 +124,10 @@ chip = {
 };
 
 devices = {
-  'BTN1' : { 'pin' : 'D29', 'pinstate' : 'IN_PULLDOWN' }, # TR STATUM Pin negated in software
-  'BTN2' : { 'pin' : 'D42', 'pinstate' : 'IN_PULLDOWN' }, # BR Pin negated in software
-  'BTN3' : { 'pin' : 'D46', 'pinstate' : 'IN_PULLDOWN' }, # BL ATMOS Pin negated in software
-  'BTN4' : { 'pin' : 'D28', 'pinstate' : 'IN_PULLDOWN' }, # TL Pin negated in software
+  'BTN1' : { 'pin' : 'D46', 'pinstate' : 'IN_PULLDOWN' }, # BL ATMOS Pin negated in software
+  'BTN2' : { 'pin' : 'D28', 'pinstate' : 'IN_PULLDOWN' }, # TL Pin negated in software
+  'BTN3' : { 'pin' : 'D29', 'pinstate' : 'IN_PULLDOWN' }, # TR STATUM Pin negated in software
+  'BTN4' : { 'pin' : 'D42', 'pinstate' : 'IN_PULLDOWN' }, # BR Pin negated in software
 
   'VIBRATE' : { 'pin' : 'D6' }, # Pin negated in software
   'LCD' : {

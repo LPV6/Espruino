@@ -825,6 +825,14 @@ void jsiSemiInit(bool autoLoad) {
           // set up terminal to avoid word wrap
           "\e[?7l"
 #endif
+#if (defined(DICKENS) || defined(EMSCRIPTEN_DICKENS))
+          "\n"
+          " ___ ___ ___ _  _____ _  _ ___  \n"
+          "|   \\_ _/ __| |/ / __| \\| / __| \n"
+          "| |  | | (__|   <| __|    \\__ \\ \n"
+          "|___/___\\___|_|\\_\\___|_|\\_|___/ \n"                                
+          ""JS_VERSION" (c) 2021 G.Williams & TWC\n"
+#else    
           // rectangles @ http://www.network-science.de/ascii/
           "\n"
           " ____                 _ \n"
@@ -840,6 +848,7 @@ void jsiSemiInit(bool autoLoad) {
           "Espruino is Open Source. Our work is supported\n"
           "only by sales of official boards and donations:\n"
           "http://espruino.com/Donate\n"
+#endif
 #endif
         );
 #ifdef ESP8266

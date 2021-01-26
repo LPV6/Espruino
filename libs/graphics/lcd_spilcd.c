@@ -125,6 +125,32 @@ void lcdSetPixel_SPILCD(JsGraphics *gfx, int x, int y, unsigned int col) {
 #endif
 }
 
+#if LCD_BPP==16
+void lcdFillRect_SPILCD(struct JsGraphics *gfx, int x1, int y1, int x2, int y2, unsigned int col) {
+  // or update just part of it.
+  uint16_t c = __builtin_bswap16(col);
+  uint16_t *ptr = (uint16_t*)(lcdBuffer) + x1 + (y1*LCD_WIDTH);
+  if (y1==y2) {
+    // if doing one line, avoid stride calculations.
+    for (int x=x1;x<=x2;x++)
+      *(ptr++) = c;
+  } else {
+    // handle cases where we can just memset
+    if (x1==0 && x2==LCD_WIDTH-1 && (col&255)==((col>>8)&255)) {
+      memset(&lcdBuffer[y1*LCD_STRIDE], col&255, LCD_STRIDE*(y2+1-y1));
+    } else {
+      // otherwise update a rect
+      int stride = LCD_WIDTH - (x2+1-x1);
+      for (int y=y1;y<=y2;y++) {
+        for (int x=x1;x<=x2;x++)
+          *(ptr++) = c;
+        ptr += stride;
+      }
+    }
+  }
+}
+#endif
+
 void lcdFlip_SPILCD_callback() {
   // just an empty stub for SPIsend - we'll just push data as fast as we can
 }
@@ -246,9 +272,9 @@ void lcdInit_SPILCD(JsGraphics *gfx) {
   jshPinOutput(LCD_SPI_SCK,1);
   jshPinOutput(LCD_SPI_MOSI,1);
   jshPinOutput(LCD_SPI_RST,1);
-  jshDelayMicroseconds(10000);
+  jshDelayMicroseconds(1000);
   jshPinOutput(LCD_SPI_RST, 1);
-  jshDelayMicroseconds(10000);
+  jshDelayMicroseconds(2000);
 
   JshSPIInfo inf;
   jshSPIInitInfo(&inf);
@@ -284,6 +310,9 @@ void lcdInit_SPILCD(JsGraphics *gfx) {
 
 void lcdSetCallbacks_SPILCD(JsGraphics *gfx) {
   gfx->setPixel = lcdSetPixel_SPILCD;
+#if LCD_BPP==16
+  gfx->fillRect = lcdFillRect_SPILCD;
+#endif
   gfx->getPixel = lcdGetPixel_SPILCD;
   //gfx->idle = lcdIdle_PCD8544;
 }

@@ -588,7 +588,7 @@ static const char SPILCD_INIT_CODE[] = {
    0x8c,0,1,  1,
    0x8d,0,1,  1,
    0xb6,0,1,  0x20,
-   0x36,0,1,  0x48, // Memory Access Control
+   0x36,0,1,  0x88, // Memory Access Control (0x48 flips upside-down)
    0x3a,0,1,  5, // could be 16/12 bit?
    0x90,0,4,  8,  8,  8,  8,
    0xbd,0,1,  6,
@@ -694,18 +694,20 @@ void lcd_flip() {
   }
   ymin=LCD_HEIGHT;
   ymax=0;
+  jshPinOutput(LCD_BL, LCD_BL_ON); // backlight on
 }
 
 void lcd_init() {
 #ifdef GPS_PIN_EN
   jshPinOutput(GPS_PIN_EN,1); // GPS off
 #endif
-  jshPinOutput(LCD_BL, LCD_BL_ON); // backlight on
+//  jshPinOutput(LCD_BL, LCD_BL_ON); // Don't turn the backlight on yet, otherwise it could show garbage - do it at the end of lcd_flip() instead
 #ifdef LCD_EN
   jshPinOutput(LCD_EN,1); // enable on
 #endif
   // LCD Init 1
   jshPinOutput(LCD_SPI_CS,1);
+
   jshPinOutput(LCD_SPI_DC,1);
   jshPinOutput(LCD_SPI_SCK,1);
   jshPinOutput(LCD_SPI_MOSI,1);
