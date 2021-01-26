@@ -2092,6 +2092,8 @@ void jswrap_banglejs_init() {
   jswrap_banglejs_accelWr(0x1B,0b00101000); // CNTL1 On (top bit), low power, DRDYE=1, 4g, Wakeup=0,
   jswrap_banglejs_accelWr(0x1B,0b10101000); // CNTL1 On (top bit), low power, DRDYE=1, 4g, Wakeup=0,
 #endif
+
+#ifdef PRESSURE_I2C
 #ifdef PRESSURE_DEVICE_HP203
   // pressure init
   char *buf[2];
@@ -2103,7 +2105,8 @@ void jswrap_banglejs_init() {
   buf[0]=0x0C; buf[1]=0x89;
   jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true); // SOFT_RST
 #endif
-
+  barometerPowerOn = false;
+#endif
 
   // Accelerometer variables init
   stepCounter = 0;
@@ -2238,6 +2241,18 @@ void jswrap_banglejs_kill() {
   promiseBeep = 0;
   jsvUnLock(promiseBuzz);
   promiseBuzz = 0;
+
+#ifdef MAG_I2C
+  if (compassPowerOn)
+    jswrap_banglejs_setCompassPower(0);
+#endif
+
+#ifdef PRESSURE_I2C
+  if (barometerPowerOn)
+    jswrap_banglejs_setBarometerPower(0);
+  jsvUnLock(promisePressure);
+  promisePressure = 0;
+#endif
 
 #ifdef SMAQ3
   jshSetPinShouldStayWatched(BTN1_PININDEX,false);
