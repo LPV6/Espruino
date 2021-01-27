@@ -400,7 +400,15 @@ JshI2CInfo i2cInternal;
 
 #ifdef PRESSURE_I2C
 #ifdef PRESSURE_DEVICE_SPL06_007
-#include "libs/misc/barometer_SPL06_007.h"
+#define SPL06_PRSB2 0x00       ///< Pressure/temp data start
+#define SPL06_PRSCFG 0x06      ///< Pressure config
+#define SPL06_TMPCFG 0x07      ///< Temperature config
+#define SPL06_MEASCFG 0x08     ///< Sensor status and config
+#define SPL06_CFGREG 0x09      ///< FIFO config
+#define SPL06_RESET 0x0C       ///< reset
+#define SPL06_COEF_START 0x10  ///< Start of calibration coefficients
+#define SPL06_COEF_NUM 18	     ///< Number of calibration coefficient registers
+#define SPL06_8SAMPLES 3
 /// Calibration coefficients
 short barometer_c0, barometer_c1, barometer_c01, barometer_c11, barometer_c20, barometer_c21, barometer_c30;
 int barometer_c00, barometer_c10;
@@ -2102,7 +2110,7 @@ void jswrap_banglejs_init() {
 #ifdef PRESSURE_DEVICE_SPL06_007
   // pressure init
   unsigned char buf[2];
-  buf[0]=0x0C; buf[1]=0x89;
+  buf[0]=SPL06_RESET; buf[1]=0x89;
   jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true); // SOFT_RST
 #endif
   barometerPowerOn = false;
