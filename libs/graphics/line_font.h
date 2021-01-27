@@ -15,8 +15,6 @@
 #ifndef NO_LINE_FONT
 #include "graphics.h"
 
-// returns the width of a character
-unsigned int graphicsLineCharWidth(JsGraphics *gfx, unsigned int size, char ch);
-// prints character, returns width
-unsigned int graphicsDrawLineChar(JsGraphics *gfx, int x1, int y1, int size, char ch);
+// prints character. xdx/xdy are vectors for X (values are all x16)
+void graphicsDrawLineChar(JsGraphics *gfx, int x1, int y1, int xdx, int xdy,  char ch);
 #endif

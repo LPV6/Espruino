@@ -12,6 +12,8 @@
  * ----------------------------------------------------------------------------
  */
 
+// FIXME - no need for poly abstraction here - can save a few bytes/some CPU cycles
+
 #ifndef NO_LINE_FONT
 #include "graphics.h"
 
@@ -19,23 +21,23 @@ static const uint8_t vfFirstChar = 48;
 static const uint8_t vfLastChar = 62;
 #define VF_CHAR_WIDTH 13
 #define VF_SCALE 16
-#define VF_OFFSET_Y (-2)
+#define VF_OFFSET_Y (-11) // on centerline
 #define VF_CHAR_SPACING 1
 static const uint8_t vfPolyVerts[] IN_FLASH_MEMORY = {
-  80,83,97,214,226,223,209,92,92,
-  110,196,
+  92,80,83,97,214,226,223,209,92,
+  196,110,
   79,82,225,
   222,227,
-  80,83,97,123,183,222,227,105,92,
-  80,83,97,136,148,146,105,92,
+  105,92,80,83,97,123,183,222,227,
+  105,92,80,83,97,136,148,146,
   148,162,214,226,223,209,196,
   68,144,183,188,
   147,225,
-  79,84,209,223,226,214,162,148,144,
-  82,145,148,162,214,226,223,209,157,
+  84,79,144,148,162,214,226,223,209,
+  145,148,162,214,226,223,209,157,82,
   79,84,123,198,224,
-  80,83,97,136,148,145,157,209,223,226,214,162,148,145,131,92,
-  80,83,97,149,225,149,161,158,144,92,
+  148,136,97,83,80,92,131,145,148,162,214,226,223,209,157,145,
+  225,149,97,83,80,92,144,158,161,149,
   133,146,
   211,224,
   97,157,227,
@@ -90,10 +92,8 @@ static const uint8_t *vfGetCharPtr(char sch, int *charLen) {
   return ptr;
 }
 
-// prints character, returns width
-static unsigned int vfDrawCharPtr(JsGraphics *gfx, int x1, int y1, int size, const uint8_t *charPtr, int charLen) {
-  x1 = (x1<<4) - 8;
-  y1 = (y1<<4) - 8;
+// prints character
+static void vfDrawCharPtr(JsGraphics *gfx, int x1, int y1, int xdx, int xdy, const uint8_t *charPtr, int charLen) {
   int w = 0;
   for (int i = 0; i < charLen; ++i) {
     int polyLen;
@@ -102,43 +102,24 @@ static unsigned int vfDrawCharPtr(JsGraphics *gfx, int x1, int y1, int size, con
     for (int j = 0; j < polyLen; ++j) {
       uint8_t vertex = p[j];
       int vx = vertex % VF_CHAR_WIDTH;
-      int vy = vertex / VF_CHAR_WIDTH;
+      int vy = (vertex / VF_CHAR_WIDTH) + VF_OFFSET_Y;
       if (vx>w) w=vx;
-      linex = (x1*16 + vx*size*256/VF_SCALE);
-      liney = (y1*16 + (vy+VF_OFFSET_Y)*size*256/VF_SCALE);
-      if (j) graphicsDrawLineAA(gfx, linex, liney, lastx, lasty);
+      linex = x1 + (vx*xdx - vy*xdy)/VF_SCALE;
+      liney = y1 + (vx*xdy + vy*xdx)/VF_SCALE;
+      if (j)
+        graphicsDrawLineAA(gfx, lastx, lasty, linex, liney);
       lastx = linex;
       lasty = liney;
     }
   }
-  return (unsigned int)(((w+1+VF_CHAR_SPACING)*size*16/VF_SCALE+7)>>4);
 }
 
-// returns the width of a character
-unsigned int graphicsLineCharWidth(JsGraphics *gfx, unsigned int size, char ch) {
-  NOT_USED(gfx);
+// prints character. xdx/xdy are vectors for X (values are all x16)
+void graphicsDrawLineChar(JsGraphics *gfx, int x1, int y1, int xdx, int xdy, char ch) {
   int charLen;
   const uint8_t *charPtr = vfGetCharPtr(ch, &charLen);
-  if (!charPtr) return (unsigned int)(size/2);
-  int w = 0;
-  for (int i = 0; i < charLen; ++i) {
-    int polyLen;
-    const uint8_t *p = vfGetPolyPtr(charPtr[i], &polyLen);
-    for (int j = 0; j < polyLen; ++j) {
-      uint8_t vertex = p[j];
-      int vx = vertex % VF_CHAR_WIDTH;
-      if (vx>w) w=vx;
-    }
-  }
-  return ((unsigned int)(w+1+VF_CHAR_SPACING)*size*16/VF_SCALE+7)>>4;
-}
-
-// prints character, returns width
-unsigned int graphicsDrawLineChar(JsGraphics *gfx, int x1, int y1, int size, char ch) {
-  int charLen;
-  const uint8_t *charPtr = vfGetCharPtr(ch, &charLen);
-  if (!charPtr) return (unsigned int)(size/2);
-  return vfDrawCharPtr(gfx, x1, y1, size, charPtr, charLen);
+  if (charPtr)
+    vfDrawCharPtr(gfx, x1, y1, xdx, xdy, charPtr, charLen);
 }
 
 #endif

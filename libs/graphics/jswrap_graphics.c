@@ -1631,24 +1631,43 @@ JsVarInt jswrap_graphics_stringWidth(JsVar *parent, JsVar *var) {
   "type" : "method",
   "class" : "Graphics",
   "name" : "drawLineString",
+  "ifndef" : "SAVE_ON_FLASH",
   "generate" : "jswrap_graphics_drawLineString",
   "params" : [
     ["str","JsVar","The string"],
-    ["x","int32","The X position of the leftmost pixel"],
-    ["y","int32","The Y position of the topmost pixel"],
-    ["options","JsVar","Options for drawing this font"]
+    ["x","int32","The X position of the start of the text string"],
+    ["y","int32","The Y position of the middle of the text string"],
+    ["options","JsVar","Options for drawing this font (see below)"]
   ],
   "return" : ["JsVar","The instance of Graphics this was called on, to allow call chaining"],
   "return_object" : "Graphics"
 }
-Draw a string of text in the current font
+Draw a string of text as a fixed-width line font
+
+`options` contains:
+
+* `size`: font size in pixels (char width is half font size) - default 16
+* `rotate`: Initial rotation in radians - default 0
+* `twist`: Subsequent rotation per character in radians - default 0
 */
 JsVar *jswrap_graphics_drawLineString(JsVar *parent, JsVar *var, int x, int y, JsVar *options) {
   JsGraphics gfx; if (!graphicsGetFromVar(&gfx, parent)) return 0;
 
-  int fontHeight = 20;
+  int fontSize = 16;
+  double rotate = 0, twist = 0;
+  jsvConfigObject configs[] = {
+      {"size", JSV_INTEGER, &fontSize},
+      {"rotate", JSV_FLOAT, &rotate},
+      {"twist", JSV_FLOAT, &twist}
+  };
+  if (!jsvReadConfigObject(options, configs, sizeof(configs) / sizeof(jsvConfigObject)))
+    return;
+  fontSize *= 16;
 
+  x = x*16 - 8;
+  y = y*16 - 8;
   int startx = x;
+
   JsVar *str = jsvAsString(var);
   JsvStringIterator it;
   jsvStringIteratorNew(&it, str, 0);
@@ -1656,13 +1675,15 @@ JsVar *jswrap_graphics_drawLineString(JsVar *parent, JsVar *var, int x, int y, J
     char ch = jsvStringIteratorGetCharAndNext(&it);
     if (ch=='\n') {
       x = startx;
-      y += fontHeight;
+      y += fontSize;
       continue;
     }
-    int w = (int)graphicsLineCharWidth(&gfx, fontHeight, ch);
-    graphicsDrawLineChar(&gfx, x, y, fontHeight, ch);
-
-    x+=w;
+    int xdx = (int)(0.5 + fontSize*cos(rotate));
+    int xdy = (int)(0.5 + fontSize*sin(rotate));
+    graphicsDrawLineChar(&gfx, x, y, xdx, xdy, ch);
+    x += xdx * 1 / 2;
+    y += xdy * 1 / 2;
+    rotate += twist;
     if (jspIsInterrupted()) break;
   }
   jsvStringIteratorFree(&it);
