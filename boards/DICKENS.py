@@ -71,7 +71,8 @@ info = {
    ],
    'makefile' : [
 #     'DEFINES += -DNRF_LOG_ENABLED=1 -DNRF_LOG_FILTERS_ENABLED=0',
-     'DEFINES += -DCONFIG_NFCT_PINS_AS_GPIOS', # Allow the reset pin to work
+     'DEFINES += -DCONFIG_NFCT_PINS_AS_GPIOS', # Allow us to use NFC pins as GPIO
+     'DEFINES += -DESPR_LSE_ENABLE ', # Ensure low speed external osc enabled
      'DEFINES += -DNRF_BL_DFU_ENTER_METHOD_BUTTON=1 -DNRF_BL_DFU_ENTER_METHOD_BUTTON_PIN=29',
      'DEFINES += -DBUTTONPRESS_TO_REBOOT_BOOTLOADER',
      'BOOTLOADER_SETTINGS_FAMILY = NRF52840',
