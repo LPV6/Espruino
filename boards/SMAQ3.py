@@ -130,12 +130,17 @@ devices = {
             'pin_scl' : 'D37'
           },
   'MAG' : { # Magnetometer/compass
-            'device' : 'unknown', 
+            'device' : 'UNKNOWN_0C', 
             'addr' : 0x0C,
             'pin_sda' : 'D44',
             'pin_scl' : 'D45'
           },
-# PRESSURE
+  'PRESSURE' : {
+            'device' : 'BMP280', 
+            'addr' : 0x1E,
+            'pin_sda' : 'D47',
+            'pin_scl' : 'D2'            
+  },
   'SPIFLASH' : {
             'pin_cs' : 'D14',
             'pin_sck' : 'D16',
@@ -143,7 +148,7 @@ devices = {
             'pin_miso' : 'D13', # D1
 #            'pin_wp' : 'D', # D2
 #            'pin_rst' : 'D', # D3
-            'size' : 4096*1024, # 4MB
+            'size' : 8192*1024, # 8MB
             'memmap_base' : 0x60000000 # map into the address space (in software)
           }
 };
