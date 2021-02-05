@@ -72,7 +72,7 @@
 #define POWER_ENABLED 1 
 #define SYSTICK_ENABLED 1 // for USB errata
 #define RNG_CONFIG_POOL_SIZE 64
-#endif
+#endif // NRF_USB
 
 #define NRFX_UARTE_ENABLED 0
 #define NRFX_UARTE0_ENABLED 0

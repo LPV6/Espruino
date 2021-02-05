@@ -72,7 +72,8 @@ info = {
    'makefile' : [
 #     'DEFINES += -DNRF_LOG_ENABLED=1 -DNRF_LOG_FILTERS_ENABLED=0',
      'DEFINES += -DCONFIG_NFCT_PINS_AS_GPIOS', # Allow us to use NFC pins as GPIO
-     'DEFINES += -DESPR_LSE_ENABLE ', # Ensure low speed external osc enabled
+     'DEFINES += -DESPR_LSE_ENABLE=1', # Ensure low speed external osc enabled
+     'DEFINES += -DESPR_REGOUT0_1_8V=1', # Leave REGOUT0 as 1.8v (not 3.3v) - seems to be what original watch firmware did
      'DEFINES += -DNRF_BL_DFU_ENTER_METHOD_BUTTON=1 -DNRF_BL_DFU_ENTER_METHOD_BUTTON_PIN=29',
      'DEFINES += -DBUTTONPRESS_TO_REBOOT_BOOTLOADER',
      'BOOTLOADER_SETTINGS_FAMILY = NRF52840',
