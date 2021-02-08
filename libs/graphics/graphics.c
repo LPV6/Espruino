@@ -80,6 +80,13 @@ void graphicsFallbackScrollX(JsGraphics *gfx, int xdir, int yfrom, int yto) {
   }
 }
 
+void graphicsFallbackBlit(JsGraphics *gfx, int x1, int y1, int w, int h, int x2, int y2) {
+  for (int y=0;y<h;y++)
+    for (int x=0;x<w;x++)
+      gfx->setPixel(gfx, (int)(x+x2),(int)(y+y2),
+        gfx->getPixel(gfx, (int)(x+x1),(int)(y+y1)));
+}
+
 void graphicsFallbackScroll(JsGraphics *gfx, int xdir, int ydir) {
   if (xdir==0 && ydir==0) return;
   int y;
@@ -128,12 +135,11 @@ void graphicsFallbackScrollClipRect(JsGraphics *gfx, int xdir, int ydir) {
     for (y=clipHeight-ydir-1;y>=0;y--)
       graphicsFallbackScrollXClipRect(gfx, xdir, y, y+ydir);
   }
-#ifndef NO_MODIFIED_AREA
-  gfx->data.modMinX=0;
-  gfx->data.modMinY=0;
-  gfx->data.modMaxX=(short)(gfx->data.width-1);
-  gfx->data.modMaxY=(short)(gfx->data.height-1);
-#endif
+  graphicsSetModified(gfx,
+      gfx->data.clipRect.x1,
+      gfx->data.clipRect.y1,
+      gfx->data.clipRect.x2,
+      gfx->data.clipRect.y2);
 }
 
 // ----------------------------------------------------------------------------------------------
@@ -183,6 +189,7 @@ bool graphicsGetFromVar(JsGraphics *gfx, JsVar *parent) {
     gfx->setPixel = graphicsFallbackSetPixel;
     gfx->getPixel = graphicsFallbackGetPixel;
     gfx->fillRect = graphicsFallbackFillRect;
+    gfx->blit = graphicsFallbackBlit;
     gfx->scroll = graphicsFallbackScroll;
     gfx->scrollClipRect = graphicsFallbackScrollClipRect;
 #ifdef USE_LCD_SDL
@@ -299,6 +306,16 @@ bool graphicsSetModifiedAndClip(JsGraphics *gfx, int *x1, int *y1, int *x2, int 
   if (*y2>=gfx->data.height) { *y2 = gfx->data.height-1; modified = true; }
 #endif
   return modified;
+}
+
+// Set the area modified by a draw command
+void graphicsSetModified(JsGraphics *gfx, int x1, int y1, int x2, int y2) {
+#ifndef NO_MODIFIED_AREA
+  if (x1 < gfx->data.modMinX) { gfx->data.modMinX=(short)x1; }
+  if (x2 > gfx->data.modMaxX) { gfx->data.modMaxX=(short)x2; }
+  if (y1 < gfx->data.modMinY) { gfx->data.modMinY=(short)y1; }
+  if (y2 > gfx->data.modMaxY) { gfx->data.modMaxY=(short)y2; }
+#endif
 }
 
 /// Get a setPixel function (assuming coordinates already clipped with graphicsSetModifiedAndClip) - if all is ok it can choose a faster draw function

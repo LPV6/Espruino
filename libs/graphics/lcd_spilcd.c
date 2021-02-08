@@ -158,6 +158,17 @@ void lcdFillRect_SPILCD(struct JsGraphics *gfx, int x1, int y1, int x2, int y2, 
     }
   }
 }
+
+// Move one memory area to another (not bounds-checked!)
+void lcdBlit_SPILCD(struct JsGraphics *gfx, int x1, int y1, int w, int h, int x2, int y2) {
+  unsigned char *pfrom = &lcdBuffer[(x1*2) + (y1*LCD_STRIDE)];
+  unsigned char *pto = &lcdBuffer[(x2*2) + (y2*LCD_STRIDE)];
+  for (int y=0;y<h;y++) {
+    memmove(pto, pfrom, w*2);
+    pfrom += LCD_STRIDE;
+    pto += LCD_STRIDE;
+  }
+}
 #endif
 
 void lcdFlip_SPILCD_callback() {
@@ -332,6 +343,7 @@ void lcdSetCallbacks_SPILCD(JsGraphics *gfx) {
   gfx->setPixel = lcdSetPixel_SPILCD;
 #if LCD_BPP==16
   gfx->fillRect = lcdFillRect_SPILCD;
+  gfx->blit = lcdBlit_SPILCD;
 #endif
   gfx->getPixel = lcdGetPixel_SPILCD;
   //gfx->idle = lcdIdle_PCD8544;

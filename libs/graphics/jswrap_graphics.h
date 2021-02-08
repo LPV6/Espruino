@@ -86,6 +86,7 @@ JsVar *jswrap_graphics_drawImages(JsVar *parent, JsVar *layersVar, JsVar *option
 JsVar *jswrap_graphics_asImage(JsVar *parent, JsVar *imgType);
 JsVar *jswrap_graphics_getModified(JsVar *parent, bool reset);
 JsVar *jswrap_graphics_scroll(JsVar *parent, int x, int y);
+JsVar *jswrap_graphics_blit(JsVar *parent, JsVar *options);
 JsVar *jswrap_graphics_scrollClipRect(JsVar *parent, int x, int y);
 JsVar *jswrap_graphics_asBMP(JsVar *parent);
 JsVar *jswrap_graphics_asURL(JsVar *parent);
