@@ -1044,7 +1044,11 @@ void btnHandlerCommon(int button, bool state, IOEventFlags flags) {
   if (lcdPowerTimeout) {
     if (((bangleFlags&JSBF_WAKEON_BTN1)&&(button==1)) ||
         ((bangleFlags&JSBF_WAKEON_BTN2)&&(button==2)) ||
-        ((bangleFlags&JSBF_WAKEON_BTN3)&&(button==3))){
+        ((bangleFlags&JSBF_WAKEON_BTN3)&&(button==3)) ||
+#ifdef DICKENS
+        ((bangleFlags&JSBF_WAKEON_BTN3)&&(button==4)) ||
+#endif
+        false){
       // if a 'hard' button, turn LCD on
       flipTimer = 0;
       if (!lcdPowerOn && state) {
