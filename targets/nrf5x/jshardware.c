@@ -1832,7 +1832,7 @@ int jshSPISend(IOEventFlags device, int data) {
   nrf_spi_disable(p_spi);
   nrf_spim_enable(p_spim); // enable SPIM mode (DMA)
   return rx;
-#else
+#else // For newer nRF parts we can just use the API directly
   uint8_t tx = (uint8_t)data;
   uint8_t rx = 0;
   spi0Sending = true;
@@ -1886,6 +1886,7 @@ bool jshSPISendMany(IOEventFlags device, unsigned char *tx, unsigned char *rx, s
   spi0RxPtr = rx ? rx+c : 0;
   spi0Cnt = count-c;
   if (callback) spi0Callback = callback;
+
 #if NRF_SD_BLE_API_VERSION<5
   uint32_t err_code = nrf_drv_spi_transfer(&spi0, tx, c, rx, rx?c:0);
 #else
@@ -1903,7 +1904,9 @@ bool jshSPISendMany(IOEventFlags device, unsigned char *tx, unsigned char *rx, s
     jsExceptionHere(JSET_INTERNALERROR, "SPI Send Error %d\n", err_code);
     return false;
   }
-  if (!callback) jshSPIWait(device);
+  if (!callback) {
+    jshSPIWait(device);
+  }
   return true;
 #else
   return false;

@@ -41,6 +41,10 @@ unsigned short lcdPalette[256];
 // ======================================================================
 
 void lcdCmd_SPILCD(int cmd, int dataLen, const unsigned char *data) {
+#ifdef ESPR_USE_SPI3
+  // anomaly 195 workaround - enable SPI before use
+  *(volatile uint32_t *)0x4002F500 = 7;
+#endif
   jshPinSetValue(LCD_SPI_DC, 0); // command
   jshPinSetValue(LCD_SPI_CS, 0);
   jshSPISend(LCD_SPI, cmd);
@@ -52,6 +56,11 @@ void lcdCmd_SPILCD(int cmd, int dataLen, const unsigned char *data) {
     }
   }
   jshPinSetValue(LCD_SPI_CS, 1);
+#ifdef ESPR_USE_SPI3
+  // anomaly 195 workaround - disable SPI when done
+  *(volatile uint32_t *)0x4002F500 = 0;
+  *(volatile uint32_t *)0x4002F004 = 1;
+#endif
 }
 void lcdSendInitCmd_SPILCD() {
   // Send initialization commands to ST7735
@@ -173,6 +182,11 @@ void lcdFlip_SPILCD(JsGraphics *gfx) {
 #endif
   unsigned char buffer1[LCD_STRIDE];
 
+#ifdef ESPR_USE_SPI3
+  // anomaly 195 workaround - enable SPI before use
+  *(volatile uint32_t *)0x4002F500 = 7;
+#endif
+
   jshPinSetValue(LCD_SPI_CS, 0);
   jshPinSetValue(LCD_SPI_DC, 0); // command
   buffer1[0] = SPILCD_CMD_WINDOW_X;
@@ -246,6 +260,12 @@ void lcdFlip_SPILCD(JsGraphics *gfx) {
   jshSPIWait(LCD_SPI);
 #endif
   jshPinSetValue(LCD_SPI_CS,1);
+#ifdef ESPR_USE_SPI3
+  // anomaly 195 workaround - disable SPI when done
+  *(volatile uint32_t *)0x4002F500 = 0;
+  *(volatile uint32_t *)0x4002F004 = 1;
+#endif
+
   // Reset modified-ness
   gfx->data.modMaxX = -32768;
   gfx->data.modMaxY = -32768;
