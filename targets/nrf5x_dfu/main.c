@@ -289,7 +289,9 @@ int main(void)
 #ifdef DICKENS // Specific Dickens bootloader tweaks...
     // Turn on only if BTN1 held for >1 second
     // Enter bootloader only if BTN2 held as well
-    if (dfuIsColdBoot) {
+    if ((r&0b1011)==0) {
+      // if not watchdog, lockup, or reset pin...
+      // Bangle.softOff causes 'SW RESET' so we must ignore this
       int count = 1000;
       while (count--) {
         nrf_delay_us(999);
