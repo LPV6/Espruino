@@ -166,7 +166,7 @@ void graphicsFillAnnulus(JsGraphics *gfx, int x, int y, int r1, int r2, unsigned
 void graphicsDrawLine(JsGraphics *gfx, int x1, int y1, int x2, int y2);
 void graphicsDrawLineAA(JsGraphics *gfx, int ix1, int iy1, int ix2, int iy2); ///< antialiased drawline. each pixel is 1/16th
 void graphicsDrawCircleAA(JsGraphics *gfx, int x, int y, int r);
-void graphicsFillPoly(JsGraphics *gfx, int points, short *vertices, bool antiAlias); ///< each pixel is 1/16th a pixel may overwrite vertices...
+void graphicsFillPoly(JsGraphics *gfx, int points, short *vertices); ///< each pixel is 1/16th a pixel may overwrite vertices...
 #ifndef NO_VECTOR_FONT
 unsigned int graphicsFillVectorChar(JsGraphics *gfx, int x1, int y1, int size, char ch); ///< prints character, returns width
 unsigned int graphicsVectorCharWidth(JsGraphics *gfx, unsigned int size, char ch); ///< returns the width of a character
