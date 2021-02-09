@@ -87,6 +87,21 @@ void ble_app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t
   NVIC_SystemReset();*/
 }
 
+void turn_off() {
+  lcd_kill();
+  jshPinOutput(VIBRATE_PIN,1); // vibrate on
+  while (get_btn1_state() || get_btn2_state()) {}; // wait for BTN1 and BTN2 to be released
+  jshPinSetValue(VIBRATE_PIN,0); // vibrate off
+  set_led_state(0,0);
+  nrf_gpio_cfg_sense_set(BTN2_PININDEX, NRF_GPIO_PIN_NOSENSE);
+  nrf_gpio_cfg_sense_set(BTN3_PININDEX, NRF_GPIO_PIN_NOSENSE);
+  nrf_gpio_cfg_sense_input(pinInfo[BTN1_PININDEX].pin, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
+  nrf_gpio_cfg_sense_set(pinInfo[BTN1_PININDEX].pin, NRF_GPIO_PIN_SENSE_LOW);
+  NRF_POWER->TASKS_LOWPWR = 1;
+  NRF_POWER->SYSTEMOFF = 1;
+  while (true) {};
+}
+
 // Override Weak version
 #if NRF_SD_BLE_API_VERSION < 5
 bool nrf_dfu_enter_check(void) {
@@ -142,18 +157,7 @@ bool dfu_enter_check(void) {
         dfu_start = false;
 #if defined(BUTTONPRESS_TO_REBOOT_BOOTLOADER) && defined(BTN2_PININDEX)
         if (jshPinGetValue(BTN2_PININDEX)) {
-          lcd_kill();
-          jshPinOutput(VIBRATE_PIN,1); // vibrate on
-          while (get_btn1_state() || get_btn2_state()) {};
-          jshPinSetValue(VIBRATE_PIN,0); // vibrate off
-          set_led_state(0,0);
-          nrf_gpio_cfg_sense_set(BTN2_PININDEX, NRF_GPIO_PIN_NOSENSE);
-          nrf_gpio_cfg_sense_set(BTN3_PININDEX, NRF_GPIO_PIN_NOSENSE);
-          nrf_gpio_cfg_sense_input(pinInfo[BTN1_PININDEX].pin, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
-          nrf_gpio_cfg_sense_set(pinInfo[BTN1_PININDEX].pin, NRF_GPIO_PIN_SENSE_LOW);
-          NRF_POWER->TASKS_LOWPWR = 1;
-          NRF_POWER->SYSTEMOFF = 1;
-          while (true) {};
+          turn_off();
           //NVIC_SystemReset(); // just in case!
         }
 #endif
@@ -280,10 +284,30 @@ int main(void)
     hardware_init();
 
     // Did we just power on? If not (we watchdog/softreset) RESETREAS will be nonzero
-    dfuIsColdBoot = NRF_POWER->RESETREAS==0;
+    int r = NRF_POWER->RESETREAS;
+    dfuIsColdBoot = (r&0xF)==0;
+#ifdef DICKENS // Specific Dickens bootloader tweaks...
+    // Turn on only if BTN1 held for >1 second
+    // Enter bootloader only if BTN2 held as well
+    if (dfuIsColdBoot) {
+      int count = 1000;
+      while (count--) {
+        nrf_delay_us(999);
+      }
+      if (!get_btn1_state()) {
+        turn_off();
+      } else {
+        if (!get_btn2_state()) {
+          nrf_bootloader_app_start();
+        } else {
+        }
+      }
+    }
+#endif
+
 #ifdef LCD
     lcd_init();
-    int r = NRF_POWER->RESETREAS;
+
     const char *reasons = "PIN\0WATCHDOG\0SW RESET\0LOCKUP\0OFF\0";
     while (*reasons) {
       if (r&1)
