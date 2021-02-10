@@ -3497,10 +3497,18 @@ void jswrap_banglejs_softOff() {
   if (channel!=EV_NONE) jshSetEventCallback(channel, (JshEventCallbackCallback)jshHadEvent);
   // keep sleeping until a button is pressed
   jshKickWatchDog();
-  while (!jshPinGetValue(BTN1_PININDEX)) {
-    jshKickWatchDog();
-    jshSleep(jshGetTimeFromMilliseconds(4*1000));
-  }
+  do {
+    // sleep until BTN1 pressed
+    while (!jshPinGetValue(BTN1_PININDEX)) {
+      jshKickWatchDog();
+      jshSleep(jshGetTimeFromMilliseconds(4*1000));
+    }
+    // wait for button to be pressed for at least 1 second
+    int timeout = 1000;
+    while (jshPinGetValue(BTN1_PININDEX) && timeout--)
+      nrf_delay_ms(1);
+    // if button not pressed, keep sleeping
+  } while (!jshPinGetValue(BTN1_PININDEX));
   // restart
   jshReboot();
 

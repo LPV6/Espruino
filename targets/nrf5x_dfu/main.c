@@ -291,10 +291,11 @@ int main(void)
     // Enter bootloader only if BTN2 held as well
     if ((r&0b1011)==0) {
       // if not watchdog, lockup, or reset pin...
-      // Bangle.softOff causes 'SW RESET' so we must ignore this
-      int count = 1000;
-      while (count--) {
-        nrf_delay_us(999);
+      if (r==0) { // Bangle.softOff causes 'SW RESET' after 1 sec, so r==4
+        int count = 1000;
+        while (count--) {
+          nrf_delay_us(999);
+        }
       }
       if (!get_btn1_state()) {
         turn_off();
