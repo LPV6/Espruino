@@ -26,8 +26,12 @@ int main() {
   jshInit();
 
   bool buttonState = false;
+#ifdef DICKENS
+  buttonState = jshPinGetValue(BTN3_PININDEX) == BTN3_ONSTATE;
+#else  
 #ifdef BTN1_PININDEX
   buttonState = jshPinGetValue(BTN1_PININDEX) == BTN1_ONSTATE;
+#endif
 #endif
   jsvInit(0);
   jsiInit(!buttonState /* load from flash by default */); // pressing USER button skips autoload
