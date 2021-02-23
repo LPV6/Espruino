@@ -40,6 +40,7 @@
 #include "nrf_sdh.h"
 #include "nrf_sdh_ble.h"
 #include "nrf_sdh_soc.h"
+#include "nrf_drv_clock.h" // for nrf_drv_clock_lfclk_request workaround
 #endif
 
 #include "nrf_log.h"
@@ -2535,22 +2536,20 @@ void jsble_advertising_stop() {
 }
 
 /** Completely deinitialise the BLE stack */
-void jsble_kill() {
+bool jsble_kill() {
   jswrap_ble_sleep();
-
   // BLE NUS doesn't need deinitialising (no ble_nus_kill)
   bleStatus &= ~BLE_NUS_INITED;
   // BLE HID doesn't need deinitialising (no ble_hids_kill)
   bleStatus &= ~BLE_HID_INITED;
-
   uint32_t err_code;
-
 #if NRF_SD_BLE_API_VERSION < 5
   err_code = sd_softdevice_disable();
 #else
+  nrf_drv_clock_lfclk_request(NULL); // https://devzone.nordicsemi.com/f/nordic-q-a/56256/disabling-the-softdevice-hangs-when-using-lfrc-with-an-active-watchdog
   err_code = nrf_sdh_disable_request();
 #endif
-  APP_ERROR_CHECK(err_code);
+  return !jsble_check_error(err_code);
 }
 
 
@@ -2559,22 +2558,21 @@ void jsble_kill() {
 void jsble_restart_softdevice(JsVar *jsFunction) {
   assert(!jsble_has_connection());
   bleStatus &= ~(BLE_NEEDS_SOFTDEVICE_RESTART | BLE_SERVICES_WERE_SET);
-
   // if we were scanning, make sure we stop
   if (bleStatus & BLE_IS_SCANNING) {
     sd_ble_gap_scan_stop();
   }
   //jsiConsolePrintf("Restart softdevice\n");
-
   jshUtilTimerDisable(); // don't want the util timer firing during this!
   JsSysTime lastTime = jshGetSystemTime();
-  jsble_kill();
-  if (jsvIsFunction(jsFunction))
-    jspExecuteFunction(jsFunction,NULL,0,NULL);
-  jsble_init();
-  // reinitialise everything
-  jswrap_ble_reconfigure_softdevice();
-  jshSetSystemTime(lastTime); // Softdevice resets the RTC - so we must reset our offsets
+  if (jsble_kill()) {
+    if (jsvIsFunction(jsFunction))
+      jspExecuteFunction(jsFunction,NULL,0,NULL);
+    jsble_init();
+    // reinitialise everything
+    jswrap_ble_reconfigure_softdevice();
+    jshSetSystemTime(lastTime); // Softdevice resets the RTC - so we must reset our offsets
+  }
   jstRestartUtilTimer(); // restart the util timer
 }
 
