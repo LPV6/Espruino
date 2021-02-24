@@ -1631,7 +1631,7 @@ JsVarInt jswrap_graphics_stringWidth(JsVar *parent, JsVar *var) {
   "type" : "method",
   "class" : "Graphics",
   "name" : "drawLineString",
-  "ifndef" : "SAVE_ON_FLASH",
+  "ifdef" : "GRAPHICS_ANTIALIAS",
   "generate" : "jswrap_graphics_drawLineString",
   "params" : [
     ["str","JsVar","The string"],
@@ -1650,6 +1650,7 @@ Draw a string of text as a fixed-width line font
 * `rotate`: Initial rotation in radians - default 0
 * `twist`: Subsequent rotation per character in radians - default 0
 */
+#ifdef GRAPHICS_ANTIALIAS
 JsVar *jswrap_graphics_drawLineString(JsVar *parent, JsVar *var, int x, int y, JsVar *options) {
   JsGraphics gfx; if (!graphicsGetFromVar(&gfx, parent)) return 0;
 
@@ -1693,6 +1694,7 @@ JsVar *jswrap_graphics_drawLineString(JsVar *parent, JsVar *var, int x, int y, J
   graphicsSetVar(&gfx); // gfx data changed because modified area
   return jsvLockAgain(parent);
 }
+#endif
 
 /*JSON{
   "type" : "method",
