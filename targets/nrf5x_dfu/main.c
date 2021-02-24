@@ -38,6 +38,9 @@
 #include "app_timer.h"
 #include "nrf_bootloader_info.h"
 #include "lcd.h"
+#ifdef ESPR_BOOTLOADER_SPIFLASH
+#include "flash.h"
+#endif
 #if NRF_SD_BLE_API_VERSION < 5
 #include "dfu_status.h"
 #endif
@@ -301,6 +304,11 @@ int main(void)
         turn_off();
       } else {
         if (!get_btn2_state()) {
+#ifdef ESPR_BOOTLOADER_SPIFLASH
+          lcd_init();
+          lcd_println("DFU " JS_VERSION "\n");
+          flashCheckAndRun();
+#endif
           nrf_bootloader_app_start();
         } else {
         }
@@ -322,6 +330,10 @@ int main(void)
     // Clear reset reason flags
     NRF_POWER->RESETREAS = 0xFFFFFFFF;
     lcd_println("DFU " JS_VERSION "\n");
+#ifdef ESPR_BOOTLOADER_SPIFLASH
+    if (!get_btn1_state())
+      flashCheckAndRun();
+#endif
 #ifdef BANGLEJS
     nrf_delay_us(500000); // 500ms delay
 #endif
