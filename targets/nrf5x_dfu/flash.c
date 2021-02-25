@@ -62,7 +62,7 @@ __attribute__( ( long_call, section(".data") ) ) static void spiFlashWriteCS(uns
   NRF_GPIO_PIN_SET_FAST((uint32_t)pinInfo[SPIFLASH_PIN_CS].pin);
 }
 
-static unsigned char spiFlashStatus() {
+__attribute__( ( long_call, section(".data") ) ) static unsigned char spiFlashStatus() {
   unsigned char buf = 5;
   NRF_GPIO_PIN_CLEAR_FAST((uint32_t)pinInfo[SPIFLASH_PIN_CS].pin);
   spiFlashWrite(&buf, 1);
@@ -109,6 +109,21 @@ __attribute__( ( long_call, section(".data") ) ) void spiFlashReadAddr(unsigned 
   spiFlashWrite(b,4);
   spiFlashRead((unsigned char*)buf,len);
   NRF_GPIO_PIN_SET_FAST((uint32_t)pinInfo[SPIFLASH_PIN_CS].pin);
+}
+
+__attribute__( ( long_call, section(".data") ) ) void spiFlashErasePage(uint32_t addr) {
+  unsigned char b[4];
+  // WREN
+  b[0] = 0x06;
+  spiFlashWriteCS(b,1);
+  // Erase
+  b[0] = 0x20;
+  b[1] = addr>>16;
+  b[2] = addr>>8;
+  b[3] = addr;
+  spiFlashWriteCS(b,4);
+  // Check busy
+  while (spiFlashStatus()&1); // while 'Write in Progress'...
 }
 
 __attribute__( ( long_call, section(".data") ) ) void intFlashErase(uint32_t addr) {
@@ -172,7 +187,7 @@ __attribute__( ( long_call, section(".data") ) ) void xlcd_wr(int data) {
   }
 }
 
-__attribute__( ( long_call, section(".data") ) ) void xlcd_rect(int x1,int y1, int x2, int y2) {
+__attribute__( ( long_call, section(".data") ) ) void xlcd_rect(int x1,int y1, int x2, int y2, bool white) {
   NRF_GPIO_PIN_WRITE_FAST(LCD_SPI_DC, 0); // command
   NRF_GPIO_PIN_WRITE_FAST(LCD_SPI_CS, 0);
   xlcd_wr(0x2A);
@@ -203,7 +218,7 @@ __attribute__( ( long_call, section(".data") ) ) void xlcd_rect(int x1,int y1, i
   NRF_GPIO_PIN_WRITE_FAST(LCD_SPI_CS, 0);
   int l = (x2+1-x1) * (y2+1-y1);
   for (int x=0;x<l*2;x++)
-    xlcd_wr(0xFF);
+    xlcd_wr(white ? 0xFF : 0);
   NRF_GPIO_PIN_WRITE_FAST(LCD_SPI_CS,1);
 }
 
@@ -223,7 +238,7 @@ __attribute__( ( long_call, section(".data") ) ) void flashDoUpdate(FlashHeader 
     size -= 4096;
     percent = (addr-header.address)*120/header.size;
     if (percent>120) percent=120;
-    xlcd_rect(60,182,60+percent,188);
+    xlcd_rect(60,182,60+percent,188,true);
     NRF_WDT->RR[0] = 0x6E524635; // kick watchdog
   }
   // Write
@@ -240,15 +255,17 @@ __attribute__( ( long_call, section(".data") ) ) void flashDoUpdate(FlashHeader 
     size -= l;
     percent = (outaddr-header.address)*120/header.size;
     if (percent>120) percent=120;
-    xlcd_rect(60,192,60+percent,198);
+    xlcd_rect(60,192,60+percent,198,true);
     NRF_WDT->RR[0] = 0x6E524635; // kick watchdog
   }
+  // Now erase the first page of flash so we don't get into a boot loop
+  spiFlashErasePage(FLASH_HEADER_ADDRESS);
+  xlcd_rect(60,180,180,200,false);
   //flashEqual(header);
   // done!
-  for (volatile int i=0;i<10000000;i++); // delay
+  for (volatile int i=0;i<5000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
   NVIC_SystemReset(); // reset!
 }
-
 
 void flashCheckAndRun() {
   spiFlashInit();
@@ -287,13 +304,15 @@ void flashCheckAndRun() {
   // All ok - check we haven't already flashed this!
   if (!flashEqual(header)) {
     lcd_println("BINARY DIFF. FLASHING...");
-    xlcd_rect(60,180,180,180);
-    xlcd_rect(60,190,180,190);
-    xlcd_rect(60,200,180,200);
+    xlcd_rect(60,180,180,180,true);
+    xlcd_rect(60,190,180,190,true);
+    xlcd_rect(60,200,180,200,true);
 
     flashDoUpdate(header);
   } else {
     lcd_println("BINARY MATCHES.");
+    spiFlashErasePage(FLASH_HEADER_ADDRESS);
+    for (volatile int i=0;i<5000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
   }
 }
 
