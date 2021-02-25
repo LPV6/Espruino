@@ -263,7 +263,7 @@ void flashCheckAndRun() {
   lcd_print_hex(header.size); lcd_println(" SIZE");
   lcd_print_hex(header.CRC); lcd_println(" CRC");
   lcd_print_hex(header.version); lcd_println(" VERSION");
-  // if (header.address==0xf7000) return; // NO BOOTLOADER - FOR TESTINGs
+  // if (header.address==0xf7000) return; // NO BOOTLOADER - FOR TESTING
   // Calculate CRC
   unsigned char buf[256];
   int size = header.size;
