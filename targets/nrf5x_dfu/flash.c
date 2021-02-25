@@ -111,21 +111,6 @@ __attribute__( ( long_call, section(".data") ) ) void spiFlashReadAddr(unsigned 
   NRF_GPIO_PIN_SET_FAST((uint32_t)pinInfo[SPIFLASH_PIN_CS].pin);
 }
 
-__attribute__( ( long_call, section(".data") ) ) void spiFlashErasePage(uint32_t addr) {
-  unsigned char b[4];
-  // WREN
-  b[0] = 0x06;
-  spiFlashWriteCS(b,1);
-  // Erase
-  b[0] = 0x20;
-  b[1] = addr>>16;
-  b[2] = addr>>8;
-  b[3] = addr;
-  spiFlashWriteCS(b,4);
-  // Check busy
-  while (spiFlashStatus()&1); // while 'Write in Progress'...
-}
-
 __attribute__( ( long_call, section(".data") ) ) void intFlashErase(uint32_t addr) {
   NRF_NVMC->CONFIG = 2;
   while(!NRF_NVMC->READY);
@@ -259,7 +244,19 @@ __attribute__( ( long_call, section(".data") ) ) void flashDoUpdate(FlashHeader 
     NRF_WDT->RR[0] = 0x6E524635; // kick watchdog
   }
   // Now erase the first page of flash so we don't get into a boot loop
-  spiFlashErasePage(FLASH_HEADER_ADDRESS);
+  addr = FLASH_HEADER_ADDRESS;
+  unsigned char b[4];
+  b[0] = 0x06; // WREN
+  spiFlashWriteCS(b,1);
+  for (volatile int i=0;i<1000;i++);
+  b[0] = 0x20; // Erase
+  b[1] = addr>>16;
+  b[2] = addr>>8;
+  b[3] = addr;
+  spiFlashWriteCS(b,4);
+  // Check if flash busy
+  while (spiFlashStatus()&1); // while 'Write in Progress'...
+  // clear progress bar
   xlcd_rect(60,180,180,200,false);
   //flashEqual(header);
   // done!
@@ -280,7 +277,7 @@ void flashCheckAndRun() {
   lcd_print_hex(header.size); lcd_println(" SIZE");
   lcd_print_hex(header.CRC); lcd_println(" CRC");
   lcd_print_hex(header.version); lcd_println(" VERSION");
-  // if (header.address==0xf7000) return; // NO BOOTLOADER - FOR TESTING
+  if (header.address==0xf7000) return; // NO BOOTLOADER - FOR TESTING
   // Calculate CRC
   unsigned char buf[256];
   int size = header.size;
@@ -311,8 +308,6 @@ void flashCheckAndRun() {
     flashDoUpdate(header);
   } else {
     lcd_println("BINARY MATCHES.");
-    spiFlashErasePage(FLASH_HEADER_ADDRESS);
-    for (volatile int i=0;i<5000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
   }
 }
 
