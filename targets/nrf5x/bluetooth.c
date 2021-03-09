@@ -1581,7 +1581,7 @@ static void soc_evt_handler(uint32_t sys_evt) {
   // dispatched to the Flash Data Storage (FDS) module.
   fs_sys_event_handler(sys_evt);
 #endif
-#else
+#else // NRF_SD_BLE_API_VERSION>=5
 static void soc_evt_handler(uint32_t sys_evt, void * p_context) {
 #endif
   void jsh_sys_evt_handler(uint32_t sys_evt);
