@@ -462,6 +462,11 @@ JsSysTime lcdWakeButtonTime;
 bool lcdPowerOn;
 /// LCD Brightness - 255=full
 uint8_t lcdBrightness;
+#ifdef ESPR_BACKLIGHT_FADE
+/// Actual LCD brightness (if we fade to a new brightness level)
+uint8_t realLcdBrightness;
+bool lcdFadeHandlerActive;
+#endif
 #ifdef MAG_I2C
 // compass data
 Vector3 mag, magmin, magmax;
@@ -551,13 +556,14 @@ typedef enum {
   JSBF_GPS_ON = 4096,
   JSBF_COMPASS_ON = 8192,
   JSBF_BAROMETER_ON = 16384,
+  JSBF_INITIALISED = 32768,
 
   JSBF_DEFAULT =
       JSBF_WAKEON_TWIST|
       JSBF_WAKEON_BTN1|JSBF_WAKEON_BTN2|JSBF_WAKEON_BTN3|
-      JSBF_POWER_SAVE
+      JSBF_POWER_SAVE|JSBF_INITIALISED
 } JsBangleFlags;
-volatile JsBangleFlags bangleFlags;
+volatile JsBangleFlags bangleFlags = JSBF_NONE;
 
 
 typedef enum {
@@ -1223,50 +1229,7 @@ void touchHandler(bool state, IOEventFlags flags) {
 }
 #endif
 
-/// Turn just the backlight on or off (or adjust brightness)
-static void jswrap_banglejs_setLCDPowerBacklight(bool isOn) {
-#ifndef EMSCRIPTEN
-#ifdef BANGLEJS_F18
-  app_timer_stop(m_backlight_on_timer_id);
-  app_timer_stop(m_backlight_off_timer_id);
-  if (isOn) { // wake
-    if (lcdBrightness > 0) {
-      if (lcdBrightness < 255) { //  only do PWM if brightness isn't full
-        app_timer_start(m_backlight_on_timer_id, APP_TIMER_TICKS(BACKLIGHT_PWM_INTERVAL, APP_TIMER_PRESCALER), NULL);
-      } else // full brightness
-        jswrap_banglejs_pwrBacklight(true); // backlight on
-    } else { // lcdBrightness == 0
-      jswrap_banglejs_pwrBacklight(false); // backlight off
-    }
-  } else { // sleep
-    jswrap_banglejs_pwrBacklight(false); // backlight off
-  }
-#else
-  jswrap_banglejs_pwrBacklight(isOn && (lcdBrightness>0));
-#ifdef LCD_BL
-  if (isOn && lcdBrightness > 0 && lcdBrightness < 255)
-    jshPinAnalogOutput(LCD_BL, lcdBrightness/256.0, 200, JSAOF_NONE);
-#endif
-#endif
-
-#endif
-}
-/*JSON{
-    "type" : "staticmethod",
-    "class" : "Bangle",
-    "name" : "setLCDPower",
-    "generate" : "jswrap_banglejs_setLCDPower",
-    "params" : [
-      ["isOn","bool","True if the LCD should be on, false if not"]
-    ],
-    "ifdef" : "BANGLEJS"
-}
-This function can be used to turn Bangle.js's LCD off or on.
-
-**When on full, the LCD draws roughly 40mA.** You can adjust
-When brightness using `Bange.setLCDBrightness`.
-*/
-void jswrap_banglejs_setLCDPower(bool isOn) {
+static void jswrap_banglejs_setLCDPowerController(bool isOn) {
 #ifdef LCD_CONTROLLER_LPM013M126
 #endif
 #ifdef LCD_CONTROLLER_ST7789_8BIT
@@ -1304,6 +1267,87 @@ void jswrap_banglejs_setLCDPower(bool isOn) {
     jshPinOutput(TOUCH_PIN_RST, 1);
     jshDelayMicroseconds(1000);
   }
+#endif
+}
+
+#ifdef ESPR_BACKLIGHT_FADE
+static void backlightFadeHandler() {
+  int target = lcdPowerOn ? lcdBrightness : 0;
+  int brightness = realLcdBrightness;
+  int step = brightness>>3; // to make this more linear
+  if (step<4) step=4;
+  if (target > brightness) {
+    brightness += step;
+    if (brightness > target)
+      brightness = target;
+  } else if (target < brightness) {
+    brightness -= step;
+    if (brightness < target)
+      brightness = target;
+  }
+  realLcdBrightness = brightness;
+  if (brightness==0) jswrap_banglejs_pwrBacklight(0);
+  else if (realLcdBrightness==255) jswrap_banglejs_pwrBacklight(1);
+  else jshPinAnalogOutput(LCD_BL, realLcdBrightness/256.0, 200, JSAOF_NONE);
+}
+#endif
+
+/// Turn just the backlight on or off (or adjust brightness)
+static void jswrap_banglejs_setLCDPowerBacklight(bool isOn) {
+#ifndef EMSCRIPTEN
+#ifdef BANGLEJS_F18
+  app_timer_stop(m_backlight_on_timer_id);
+  app_timer_stop(m_backlight_off_timer_id);
+  if (isOn) { // wake
+    if (lcdBrightness > 0) {
+      if (lcdBrightness < 255) { //  only do PWM if brightness isn't full
+        app_timer_start(m_backlight_on_timer_id, APP_TIMER_TICKS(BACKLIGHT_PWM_INTERVAL, APP_TIMER_PRESCALER), NULL);
+      } else // full brightness
+        jswrap_banglejs_pwrBacklight(true); // backlight on
+    } else { // lcdBrightness == 0
+      jswrap_banglejs_pwrBacklight(false); // backlight off
+    }
+  } else { // sleep
+    jswrap_banglejs_pwrBacklight(false); // backlight off
+  }
+#elif defined(ESPR_BACKLIGHT_FADE)
+  if (!lcdFadeHandlerActive) {
+    JsSysTime t = jshGetTimeFromMilliseconds(10);
+    jstExecuteFn(backlightFadeHandler, NULL, jshGetSystemTime()+t, t);
+    lcdFadeHandlerActive = true;
+  }
+#else
+  jswrap_banglejs_pwrBacklight(isOn && (lcdBrightness>0));
+#ifdef LCD_BL
+  if (isOn && lcdBrightness > 0 && lcdBrightness < 255)
+    jshPinAnalogOutput(LCD_BL, lcdBrightness/256.0, 200, JSAOF_NONE);
+#endif // LCD_BL
+#endif
+#endif // !EMSCRIPTEN
+}
+
+
+
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "Bangle",
+    "name" : "setLCDPower",
+    "generate" : "jswrap_banglejs_setLCDPower",
+    "params" : [
+      ["isOn","bool","True if the LCD should be on, false if not"]
+    ],
+    "ifdef" : "BANGLEJS"
+}
+This function can be used to turn Bangle.js's LCD off or on.
+
+**When on full, the LCD draws roughly 40mA.** You can adjust
+When brightness using `Bange.setLCDBrightness`.
+*/
+void jswrap_banglejs_setLCDPower(bool isOn) {
+#ifdef ESPR_BACKLIGHT_FADE
+  if (isOn) jswrap_banglejs_setLCDPowerController(isOn);
+#else
+  jswrap_banglejs_setLCDPowerController(isOn);
 #endif
   jswrap_banglejs_setLCDPowerBacklight(isOn);
   if (lcdPowerOn != isOn) {
@@ -2138,10 +2182,16 @@ void jswrap_banglejs_init() {
   jshDelayMicroseconds(10000);
 #endif
 #endif
-  bangleFlags = JSBF_DEFAULT;
+  bool firstRun = !(bangleFlags & JSBF_INITIALISED); // is this the first time jswrap_banglejs_init was called?
+  bangleFlags = JSBF_DEFAULT; // includes bangleFlags
   flipTimer = 0; // reset the LCD timeout timer
   lcdPowerOn = true;
   lcdBrightness = 255;
+#ifdef ESPR_BACKLIGHT_FADE
+  realLcdBrightness = firstRun ? 0 : lcdBrightness;
+  lcdFadeHandlerActive = false;
+  jswrap_banglejs_setLCDPowerBacklight(lcdPowerOn);
+#endif
   lcdPowerTimeout = DEFAULT_LCD_POWER_TIMEOUT;
   lcdWakeButton = 0;
 #ifdef LCD_WIDTH
@@ -2197,6 +2247,9 @@ void jswrap_banglejs_init() {
   }
 
 #ifdef DICKENS
+  // don't show splash screen unless the watch has been totally reset - stops flicker on boot
+  if (!(jsiStatus & JSIS_COMPLETELY_RESET))
+    showSplashScreen = false;
   if (showSplashScreen)
 #endif
   graphicsClear(&gfx);
@@ -2451,6 +2504,12 @@ void jswrap_banglejs_kill() {
 #endif
   app_timer_stop(m_peripheral_poll_timer_id);
   jstStopExecuteFn(hrmPollHandler, 0);
+#endif
+#ifdef ESPR_BACKLIGHT_FADE
+  if (lcdFadeHandlerActive) {
+    jstStopExecuteFn(backlightFadeHandler, NULL);
+    lcdFadeHandlerActive = false;
+  }
 #endif
   jsvUnLock(promiseBeep);
   promiseBeep = 0;
@@ -2797,6 +2856,13 @@ bool jswrap_banglejs_idle() {
 #ifdef LCD_CONTROLLER_LPM013M126
   // toggle EXTCOMIN to avoid burn-in
     lcdMemLCD_extcomin();
+#endif
+#ifdef ESPR_BACKLIGHT_FADE
+  if (lcdFadeHandlerActive && realLcdBrightness == (lcdPowerOn?lcdBrightness:0)) {
+    jstStopExecuteFn(backlightFadeHandler, NULL);
+    lcdFadeHandlerActive = false;
+    if (!lcdPowerOn) jswrap_banglejs_setLCDPowerController(0);
+  }
 #endif
 
   return false;
