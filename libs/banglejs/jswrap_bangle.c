@@ -3552,6 +3552,9 @@ static void jswrap_banglejs_periph_off() {
 #ifdef BTN3_PININDEX
   nrf_gpio_cfg_sense_set(BTN3_PININDEX, NRF_GPIO_PIN_NOSENSE);
 #endif
+#ifdef BTN4_PININDEX
+  nrf_gpio_cfg_sense_set(BTN4_PININDEX, NRF_GPIO_PIN_NOSENSE);
+#endif
   nrf_gpio_cfg_sense_set(BTN1_PININDEX, NRF_GPIO_PIN_SENSE_LOW);
 #else
   jsExceptionHere(JSET_ERROR, ".off not implemented on emulator");

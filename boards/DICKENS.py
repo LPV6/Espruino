@@ -35,7 +35,7 @@ import pinutils;
 #     D42(btn)  GND
 
 # unfitted big flash-ish chip
-# o  D14    NC?
+# o  D14    VCC
 #    D15    D17
 #    D2     D19
 #    GND    D18      
@@ -74,6 +74,8 @@ info = {
      'DEFINES += -DCONFIG_NFCT_PINS_AS_GPIOS', # Allow us to use NFC pins as GPIO
      'DEFINES += -DESPR_LSE_ENABLE=1', # Ensure low speed external osc enabled
 #     'DEFINES += -DESPR_REGOUT0_1_8V=1', # Leave REGOUT0 as 1.8v (not 3.3v) - seems to be what original watch firmware did
+     'DEFINES += -DESPR_DCDC_ENABLE=1', # Use DC/DC converter
+     'DEFINES += -DSPIFLASH_SLEEP_CMD', # SPI flash needs to be explicitly slept and woken up
      'DEFINES += -DESPR_USE_SPI3=1', # Use SPI3 (even though it has errata 195) as it's much faster
      'DEFINES += -DESPR_BACKLIGHT_FADE=1', # Smoothly fade backlight on and off
      'DEFINES += -DNRF_BL_DFU_ENTER_METHOD_BUTTON=1 -DNRF_BL_DFU_ENTER_METHOD_BUTTON_PIN=29',
@@ -146,7 +148,7 @@ devices = {
             'pin_mosi' : 'D5',
             'pin_miso' : 'D27',
             'pin_en' : 'D43', 
-            'pin_bl' : 'D33', # TESTED!
+            'pin_bl' : 'D33', # Also enables the power supply for the vibration motor
             'bitrate' : 32000000
           },
   'BAT' : {

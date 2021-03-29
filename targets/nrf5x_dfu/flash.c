@@ -71,6 +71,13 @@ __attribute__( ( long_call, section(".data") ) ) static unsigned char spiFlashSt
   return buf;
 }
 
+// Wake up the SPI Flash from deep power-down mode
+static void flashWakeUp() {
+  unsigned char buf = 0xAB;  // SPI Flash release from deep power-down
+  spiFlashWriteCS(&buf,1);
+  nrf_delay_us(50); // Wait at least 20us for Flash IC to wake up from deep power-down
+}
+
 void spiFlashInit() {
 #ifdef SPIFLASH_PIN_WP
   nrf_gpio_pin_write_output((uint32_t)pinInfo[SPIFLASH_PIN_WP].pin, 0);
@@ -85,6 +92,11 @@ void spiFlashInit() {
   nrf_gpio_pin_write((uint32_t)pinInfo[SPIFLASH_PIN_RST].pin, 1);
 #endif
   nrf_delay_us(100);
+#ifdef SPIFLASH_SLEEP_CMD
+  // Release from deep power-down - might need a couple of attempts...?
+  flashWakeUp();
+  flashWakeUp();
+#endif  
   // disable lock bits
   // wait for write enable
   unsigned char buf[2];
@@ -310,5 +322,14 @@ void flashCheckAndRun() {
     lcd_println("BINARY MATCHES.");
   }
 }
+
+// Put the SPI Flash into deep power-down mode
+void flashPowerDown() {
+  spiFlashInit(); // 
+  unsigned char buf = 0xB9;  // SPI Flash deep power-down
+  spiFlashWriteCS(&buf,1);
+  nrf_delay_us(2); // Wait at least 1us for Flash IC to enter deep power-down
+}
+
 
 #endif
