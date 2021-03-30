@@ -91,7 +91,6 @@ void ble_app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t
 }
 
 void turn_off() {
-  uint8_t pin;
   lcd_kill();
 #ifdef SPIFLASH_SLEEP_CMD  
   flashPowerDown();  // Put the SPI Flash into deep power-down
@@ -103,7 +102,7 @@ void turn_off() {
   NRF_P0->OUT=0x03300f04; // 00000011 00110000 00001111 00000100 - high pins: D2, D8, SDA, SCL, LCD_CS, FLASH_CS, FLASH_WP, FLASH_RST, FLASH_SCK
 //NRF_P0->OUT=0x03300e00; // 00000011 00110000 00001110 00000000 - high pins: SDA, SCL, LCD_CS, FLASH_CS, FLASH_WP, FLASH_RST, FLASH_SCK
   NRF_P1->OUT=0x00000000; 
-  for (pin=0; pin<48; pin++) {
+  for (uint8_t pin=0; pin<48; pin++) {
     NRF_GPIO_PIN_CNF(pin,0x00000004); // Set all pins as input with pulldown
   }
 //NRF_GPIO_PIN_CNF(BAT_PIN_VOLTAGE,0x00000002);   //  D4 = battery voltage measurement (no pull, input buffer disconnected)

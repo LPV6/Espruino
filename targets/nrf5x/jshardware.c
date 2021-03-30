@@ -498,6 +498,10 @@ static void spiFlashWakeUp() {
   unsigned char buf[1];
   buf[0] = 0xAB;
   spiFlashWriteCS(buf,1);
+  nrf_delay_us(30); // Wait at least 20us for Flash IC to wake up from deep power-down
+  spiFlashWriteCS(buf,1); // Might need two attempts
+  nrf_delay_us(30); 
+  spiFlashAwake = true;
 }
 void spiFlashSleep() {
   if (spiFlashLastAddress) {
@@ -507,6 +511,8 @@ void spiFlashSleep() {
   unsigned char buf[1];
   buf[0] = 0xB9;
   spiFlashWriteCS(buf,1);
+//  nrf_delay_us(2); // Wait at least 1us for Flash IC to enter deep power-down
+  spiFlashAwake = false;
 }
 #endif
 #endif
@@ -704,7 +710,6 @@ void jshResetPeripherals() {
 #endif
 #ifdef SPIFLASH_SLEEP_CMD
   spiFlashWakeUp();
-  spiFlashAwake = true;
 #endif
 
   // disable lock bits
@@ -2423,7 +2428,6 @@ bool jshSleep(JsSysTime timeUntilWake) {
 #ifdef SPIFLASH_SLEEP_CMD
   if (spiFlashAwake) {
     spiFlashSleep();
-    spiFlashAwake = false;
   }
 #endif
 #endif
