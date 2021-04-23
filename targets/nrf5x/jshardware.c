@@ -752,7 +752,7 @@ void jshInit() {
   jshPinOutput(LED1_PININDEX, LED1_ONSTATE);
 #endif
 
-  nrf_utils_lfclk_config_and_start();
+  nrf_utils_lfclk_config_and_start();   // RB note: For NRF_SD_BLE_API_VERSION>=5, this gets re-set by jsble_init()
 
 #ifdef DEFAULT_CONSOLE_RX_PIN
   // Only init UART if something is connected and RX is pulled up on boot...

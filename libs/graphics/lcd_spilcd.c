@@ -293,7 +293,11 @@ void lcdInit_SPILCD(JsGraphics *gfx) {
   lcdSetPalette_SPILCD(0);
 
 #ifdef LCD_BL
+#if LCD_BL_INVERTED
+  jshPinOutput(LCD_BL, 0);
+#else
   jshPinOutput(LCD_BL, 1);
+#endif
 #endif
 #ifdef LCD_EN
   jshPinOutput(LCD_EN, 1);
@@ -302,7 +306,7 @@ void lcdInit_SPILCD(JsGraphics *gfx) {
   jshPinOutput(LCD_SPI_DC,1);
   jshPinOutput(LCD_SPI_SCK,1);
   jshPinOutput(LCD_SPI_MOSI,1);
-  jshPinOutput(LCD_SPI_RST,1);
+  jshPinOutput(LCD_SPI_RST,0);
   jshDelayMicroseconds(1000);
   jshPinOutput(LCD_SPI_RST, 1);
   jshDelayMicroseconds(2000);
