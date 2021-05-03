@@ -30,7 +30,6 @@ info = {
      'LCD_SPI'
    ],
    'makefile' : [
-     'DEFINES += -DDICKENS',
 #     'DEFINES += -DNRF_LOG_ENABLED=1 -DNRF_LOG_FILTERS_ENABLED=0',
      'DEFINES += -DCONFIG_NFCT_PINS_AS_GPIOS', # Allow us to use NFC pins as GPIO
      'DEFINES += -DESPR_LSE_ENABLE=1', # Ensure low speed external osc enabled
@@ -76,7 +75,7 @@ chip = {
   'flash' : 1024,
   'speed' : 64,
   'usart' : 2,
-  'spi' : 1,
+  'spi' : 3,  # Also defined in nrf52840_peripherals.h
   'i2c' : 1,
   'adc' : 1,
   'dac' : 0,
@@ -110,6 +109,7 @@ devices = {
             'pin_miso' : 'D27',
             'pin_en' : 'D43', 
             'pin_bl' : 'D32',
+            'pin_tearing' : 'D24',
             'backlight_inverted' : 1,
             'bitrate' : 32000000
           },
@@ -124,17 +124,18 @@ devices = {
            'pin_scl' : 'D10'
          },
   'ACCEL' : {
-            'device' : 'KXTJ3_1057', 'addr' : 0x0e,
+#            'device' : 'KXTJ3_1057', 'addr' : 0x0e,
+            'device'  : 'KX126', 'addr' : 0x1e,
             'pin_sda' : 'D9',
             'pin_scl' : 'D10',
-#           'pin_int' : '' # unknown
+#            'pin_int' : 'D23',
+#            'pin_int2' : 'D21'
          },
- 'PRESSURE' : {
+  'PRESSURE' : {
            'device' : 'SPL06_007', 'addr' : 0x76,
            'pin_sda' : 'D9',
            'pin_scl' : 'D10',
         },
-  # KX126-1063
   'SPIFLASH' : {
             'pin_cs' : 'D14',
             'pin_sck' : 'D19',

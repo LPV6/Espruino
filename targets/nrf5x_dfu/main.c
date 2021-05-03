@@ -109,7 +109,7 @@ void turn_off() {
   for (uint8_t pin=0; pin<48; pin++) {
     NRF_GPIO_PIN_CNF(pin,0x00000004); // Set all pins as input with pulldown
   }
-//NRF_GPIO_PIN_CNF(BAT_PIN_VOLTAGE,0x00000002);   //  D4 = battery voltage measurement (no pull, input buffer disconnected)
+  NRF_GPIO_PIN_CNF(BAT_PIN_VOLTAGE,0x00000002);   //  D4 = battery voltage measurement (no pull, input buffer disconnected)
   NRF_GPIO_PIN_CNF(ACCEL_PIN_SDA,0x0000060d);     //  D9 = SDA open-drain output
   NRF_GPIO_PIN_CNF(ACCEL_PIN_SCL,0x0000060d);     // D10 = SCL open-drain output
   NRF_GPIO_PIN_CNF(LCD_SPI_MISO,0x0000000c);      // D27 = LCD_MISO input with pullup
