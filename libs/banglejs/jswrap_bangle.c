@@ -896,6 +896,9 @@ void peripheralPollHandler() {
     newx = -newx; //consistent directions with Bangle
     newz = -newz; 
 #endif
+#ifdef ACCEL_DEVICE_KX126
+    newx = -newx;
+#endif
     int dx = newx-acc.x;
     int dy = newy-acc.y;
     int dz = newz-acc.z;
