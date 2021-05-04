@@ -1797,8 +1797,13 @@ JsVarInt jswrap_banglejs_getBattery() {
   const JsVarFloat vlo = 0.51;
   const JsVarFloat vhi = 0.62;
 #elif defined(DICKENS)
-  const JsVarFloat vlo = 3.1 / (2.8*2);  // Display becomes very dim and starts flickering around 2.9V
-  const JsVarFloat vhi = 4.0 / (2.8*2);  // Fully charged is 4.2V, but drops fairly quickly to 4.0V
+#ifdef LCD_TEARING  // DICKENS2 hardware (with LCD tearing signal) has VDD=3.3V
+  const JsVarFloat vlo = 3.55 / (3.3*2);  // Operates down to 3.05V, but battery starts dropping very rapidly from 3.55V, so treat this as the end-point.
+  const JsVarFloat vhi = 4.15 / (3.3*2);  // Fully charged is 4.20V, but drops quickly to 4.15V
+#else               // Original DICKENS hardware has VDD=2.8V
+  const JsVarFloat vlo = 3.55 / (2.8*2);
+  const JsVarFloat vhi = 4.15 / (2.8*2);
+#endif
 #else
   const JsVarFloat vlo = 0;
   const JsVarFloat vhi = 1;
