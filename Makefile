@@ -725,6 +725,11 @@ else
         Q=@
   export SILENT=1
 endif
+ifdef BLACKLIST
+  # to allow blacklist to take effect if defined
+  # inside a BOARD.py file
+  export BLACKLIST
+endif
 
 # =============================================================================
 # =============================================================================

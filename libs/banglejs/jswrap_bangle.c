@@ -59,6 +59,9 @@
 #include "kx126_registers.h"
 #endif
 
+#include "stepcount.h"
+#include "heartrate.h"
+
 #ifdef GPS_PIN_RX
 #include "nmea.h"
 #endif
@@ -353,6 +356,10 @@ APP_TIMER_DEF(m_backlight_off_timer_id);
 #define BACKLIGHT_PWM_INTERVAL 15 // in msec - 67Hz PWM
 #endif
 
+#ifdef EMSCRIPTEN
+#define HOME_BTN 3
+#endif
+
 #ifdef DTNO1_F5
 /// Internal I2C used for Accelerometer/Pressure
 JshI2CInfo i2cInternal;
@@ -504,11 +511,6 @@ int accelGestureEndThresh = 2000*2000;
 int accelGestureInactiveCount = 4;
 /// how many samples must a gesture have before we notify about it?
 int accelGestureMinLength = 10;
-// Step data
-/// How low must acceleration magnitude squared get before we consider the next rise a step?
-int stepCounterThresholdLow = (8192-80)*(8192-80);
-/// How high must acceleration magnitude squared get before we consider it a step?
-int stepCounterThresholdHigh = (8192+80)*(8192+80);
 /// How much acceleration to register a twist of the watch strap?
 int twistThreshold = 800;
 /// Maximum acceleration in Y to trigger a twist (low Y means watch is facing the right way up)
@@ -518,8 +520,6 @@ int twistTimeout = 1000;
 
 /// Current steps since reset
 uint32_t stepCounter;
-/// has acceleration counter passed stepCounterThresholdLow?
-bool stepWasLow;
 /// What state was the touchscreen last in
 typedef enum {
   TS_NONE = 0,
@@ -531,9 +531,6 @@ typedef enum {
 TouchState touchLastState; /// What happened in the last event?
 TouchState touchLastState2; /// What happened in the event before last?
 TouchState touchStatus; ///< What has happened *while the current touch is in progress*
-
-int8_t hrmHistory[HRM_HISTORY_LEN];
-volatile uint8_t hrmHistoryIdx;
 
 /// Promise when beep is finished
 JsVar *promiseBeep;
@@ -561,6 +558,7 @@ typedef enum {
   JSBF_COMPASS_ON = 8192,
   JSBF_BAROMETER_ON = 16384,
   JSBF_INITIALISED = 32768,
+  JSBF_HRM_INSTANT_LISTENER = 65536,
 
   JSBF_DEFAULT =
       JSBF_WAKEON_TWIST|
@@ -598,8 +596,9 @@ typedef enum {
   JSBT_FACE_UP = 1<<19, ///< Watch was turned face up/down (faceUp holds the actual state)
   JSBT_ACCEL_INTERVAL_DEFAULT = 1<<20, ///< reschedule accelerometer poll handler to default speed
   JSBT_ACCEL_INTERVAL_POWERSAVE = 1<<21, ///< reschedule accelerometer poll handler to powersave speed
+  JSBT_HRM_INSTANT_DATA = 1<<22, ///< Instant heart rate data
 #ifdef PRESSURE_I2C
-  JSBT_PRESSURE_DATA = 1<<22
+  JSBT_PRESSURE_DATA = 1<<23
 #endif
 } JsBangleTasks;
 JsBangleTasks bangleTasks;
@@ -956,14 +955,18 @@ void peripheralPollHandler() {
       bangleTasks |= JSBT_FACE_UP;
       jshHadEvent();
     }
-    // check for step counter
-    if (accMagSquared < stepCounterThresholdLow)
-      stepWasLow = true;
-    else if ((accMagSquared > stepCounterThresholdHigh) && stepWasLow) {
-      stepWasLow = false;
-      stepCounter++;
-      bangleTasks |= JSBT_STEP_EVENT;
-      jshHadEvent();
+    // Step counter
+    if (bangleTasks & JSBT_ACCEL_INTERVAL_DEFAULT) {
+      // we've come out of powersave, reset the algorithm
+      stepcount_init();
+    }
+    if (powerSaveTimer < POWER_SAVE_TIMEOUT) {
+      // only do step counting if power save is off (otherwise accel interval is too low - also wastes power)
+      if (stepcount_new(accMagSquared)) {
+        stepCounter++;
+        bangleTasks |= JSBT_STEP_EVENT;
+        jshHadEvent();
+      }
     }
     // check for twist action
     if (twistTimer < TIMER_MAX)
@@ -1062,13 +1065,16 @@ void hrmPollHandler() {
 
   nrf_analog_read_end(adcInUse);
 
-  if (v<-128) v=-128;
-  if (v>127) v=127;
-  hrmHistory[hrmHistoryIdx] = v;
-  hrmHistoryIdx = (hrmHistoryIdx+1) & (HRM_HISTORY_LEN-1);
-  if (hrmHistoryIdx==0)
+  if (hrm_new(v)) {
     bangleTasks |= JSBT_HRM_DATA;
+    jshHadEvent();
+  }
+  if (bangleFlags & JSBF_HRM_INSTANT_LISTENER) {
+    bangleTasks |= JSBT_HRM_INSTANT_DATA;
+    jshHadEvent();
+  }
 #endif
+
 }
 
 #ifdef BANGLEJS_F18
@@ -1145,6 +1151,12 @@ bool btnTouchHandler() {
       return true; // eat the event
     }
   }
+  // if LCD is not on, ignore touch/swipe
+  if (!lcdPowerOn) {
+    touchLastState = touchLastState2 = touchStatus = TS_NONE;
+    return false;
+  }
+  // Detect touch/swipe
   TouchState state =
       (jshPinGetValue(BTN4_PININDEX)?TS_LEFT:0) |
       (jshPinGetValue(BTN5_PININDEX)?TS_RIGHT:0);
@@ -1690,7 +1702,7 @@ void jswrap_banglejs_setPollInterval(JsVarFloat interval) {
     ],
     "ifdef" : "BANGLEJS"
 }
-Set internal options used for gestures, step counting, etc...
+Set internal options used for gestures, etc...
 
 * `wakeOnBTN1` should the LCD turn on when BTN1 is pressed? default = `true`
 * `wakeOnBTN2` should the LCD turn on when BTN2 is pressed? default = `true`
@@ -1701,15 +1713,10 @@ Set internal options used for gestures, step counting, etc...
 * `twistThreshold`  How much acceleration to register a twist of the watch strap? Can be negative for oppsite direction. default = `800`
 * `twistMaxY` Maximum acceleration in Y to trigger a twist (low Y means watch is facing the right way up). default = `-800`
 * `twistTimeout`  How little time (in ms) must a twist take from low->high acceleration? default = `1000`
-
 * `gestureStartThresh` how big a difference before we consider a gesture started? default = `sqr(800)`
 * `gestureEndThresh` how small a difference before we consider a gesture ended? default = `sqr(2000)`
 * `gestureInactiveCount` how many samples do we keep after a gesture has ended? default = `4`
 * `gestureMinLength` how many samples must a gesture have before we notify about it? default = `10`
-*
-* `stepCounterThresholdLow` How low must acceleration magnitude squared get before we consider the next rise a step? default = `sqr(8192-80)`
-* `stepCounterThresholdHigh` How high must acceleration magnitude squared get before we consider it a step? default = `sqr(8192+80)`
-
 * `powerSave` after a minute of not being moved, Bangle.js will change the accelerometer poll interval down to 800ms (10x accelerometer samples).
    On movement it'll be raised to the default 80ms. If `Bangle.setPollInterval` is used this is disabled, and for it to work the poll interval
    must be either 80ms or 800ms. default = `true`
@@ -1725,6 +1732,7 @@ void jswrap_banglejs_setOptions(JsVar *options) {
   bool wakeOnTouch = bangleFlags&JSBF_WAKEON_TOUCH;
   bool wakeOnTwist = bangleFlags&JSBF_WAKEON_TWIST;
   bool powerSave = bangleFlags&JSBF_POWER_SAVE;
+  int stepCounterThresholdLow, stepCounterThresholdHigh; // ignore these with new step counter
   jsvConfigObject configs[] = {
       {"gestureStartThresh", JSV_INTEGER, &accelGestureStartThresh},
       {"gestureEndThresh", JSV_INTEGER, &accelGestureEndThresh},
@@ -1872,8 +1880,7 @@ bool jswrap_banglejs_setHRMPower(bool isOn, JsVar *appId) {
     jshPinAnalog(HEARTRATE_PIN_ANALOG);
 #endif
     jswrap_banglejs_pwrHRM(true); // HRM on
-    memset(hrmHistory, 0, sizeof(hrmHistory));
-    hrmHistoryIdx = 0;
+    hrm_init();
     JsSysTime t = jshGetTimeFromMilliseconds(HRM_POLL_INTERVAL);
     jstExecuteFn(hrmPollHandler, NULL, jshGetSystemTime()+t, t);
   } else {
@@ -1894,7 +1901,8 @@ Is the Heart rate monitor powered?
 
 Set power with `Bangle.setHRMPower(...);`
 */
-bool jswrap_banglejs_isHRMOn() {
+// emscripten bug means we can't use 'bool' as return value here!
+int jswrap_banglejs_isHRMOn() {
   return bangleFlags & JSBF_HRM_ON;
 }
 
@@ -1963,7 +1971,8 @@ Is the GPS powered?
 
 Set power with `Bangle.setGPSPower(...);`
 */
-bool jswrap_banglejs_isGPSOn() {
+// emscripten bug means we can't use 'bool' as return value here!
+int jswrap_banglejs_isGPSOn() {
   return bangleFlags & JSBF_GPS_ON;
 }
 
@@ -1991,6 +2000,7 @@ Bangle.on('mag',print);
 *When on, the compass draws roughly 2mA*
 */
 bool jswrap_banglejs_setCompassPower(bool isOn, JsVar *appId) {
+#ifdef MAG_I2C
   isOn = setDevicePower("Compass", appId, isOn);
 
   if (isOn) bangleFlags |= JSBF_COMPASS_ON;
@@ -2010,6 +2020,9 @@ bool jswrap_banglejs_setCompassPower(bool isOn, JsVar *appId) {
   magmax.z = -32768;
 
   return isOn;
+#else
+  return 0;
+#endif
 }
 
 /*JSON{
@@ -2024,7 +2037,8 @@ Is the compass powered?
 
 Set power with `Bangle.setCompassPower(...);`
 */
-bool jswrap_banglejs_isCompassOn() {
+// emscripten bug means we can't use 'bool' as return value here!
+int jswrap_banglejs_isCompassOn() {
   return bangleFlags & JSBF_COMPASS_ON;
 }
 
@@ -2110,7 +2124,8 @@ Is the Barometer powered?
 
 Set power with `Bangle.setBarometerPower(...);`
 */
-bool jswrap_banglejs_isBarometerOn() {
+// emscripten bug means we can't use 'bool' as return value here!
+int jswrap_banglejs_isBarometerOn() {
   return bangleFlags & JSBF_BAROMETER_ON;
 }
 
@@ -2133,6 +2148,7 @@ Returns an `{x,y,z,dx,dy,dz,heading}` object
 To get this event you must turn the compass on
 with `Bangle.setCompassPower(1)`.*/
 JsVar *jswrap_banglejs_getCompass() {
+#ifdef MAG_I2C
   JsVar *o = jsvNewObject();
   if (o) {
     jsvObjectSetChildAndUnLock(o, "x", jsvNewFromInteger(mag.x));
@@ -2155,6 +2171,9 @@ JsVar *jswrap_banglejs_getCompass() {
     jsvObjectSetChildAndUnLock(o, "heading", jsvNewFromFloat(h));
   }
   return o;
+#else
+  return 0;
+#endif
 }
 
 /*JSON{
@@ -2484,8 +2503,8 @@ void jswrap_banglejs_init() {
 #endif
 
   // Accelerometer variables init
+  stepcount_init();
   stepCounter = 0;
-  stepWasLow = false;
 #ifdef MAG_I2C
 #ifdef MAG_DEVICE_GMC303
   // compass init
@@ -2503,6 +2522,8 @@ void jswrap_banglejs_init() {
   touchStatus = TS_NONE;
   touchLastState = 0;
   touchLastState2 = 0;
+  // HRM
+  hrm_init();
 
 #ifndef EMSCRIPTEN
   // Add watchdog timer to ensure watch always stays usable (hopefully!)
@@ -2673,6 +2694,11 @@ bool jswrap_banglejs_idle() {
     bangleFlags |= JSBF_ACCEL_LISTENER;
   else
     bangleFlags &= ~JSBF_ACCEL_LISTENER;
+  if (jsiObjectHasCallbacks(bangle, JS_EVENT_PREFIX"HRMi"))
+    bangleFlags |= JSBF_HRM_INSTANT_LISTENER;
+  else
+    bangleFlags &= ~JSBF_HRM_INSTANT_LISTENER;
+
   if (!bangle) {
     bangleTasks = JSBT_NONE;
   }
@@ -2767,63 +2793,34 @@ bool jswrap_banglejs_idle() {
         }
       }
     }
+    if (bangleTasks & JSBT_HRM_INSTANT_DATA) {
+      JsVar *o = jsvNewObject();
+      if (o) {
+        jsvObjectSetChildAndUnLock(o,"raw",jsvNewFromInteger(hrmInfo.raw));
+        jsvObjectSetChildAndUnLock(o,"filt",jsvNewFromInteger(hrmInfo.filtered));
+        jsvObjectSetChildAndUnLock(o,"thresh",jsvNewFromInteger(hrmInfo.thresh >> HRM_THRESH_SHIFT));
+        jsvObjectSetChildAndUnLock(o,"t",jsvNewFromInteger(hrmInfo.timeSinceBeat));
+        jsvObjectSetChildAndUnLock(o,"bpm",jsvNewFromFloat(hrmInfo.bpm10 / 10.0));
+        jsvObjectSetChildAndUnLock(o,"confidence",jsvNewFromInteger(hrmInfo.confidence));
+        jsiQueueObjectCallbacks(bangle, JS_EVENT_PREFIX"HRMi", &o, 1);
+        jsvUnLock(o);
+      }
+    }
     if (bangleTasks & JSBT_HRM_DATA) {
       JsVar *o = jsvNewObject();
       if (o) {
-        const int BPM_MIN = 40;
-        const int BPM_MAX = 200;
-        //const int SAMPLES_PER_SEC = 1000 / HRM_POLL_INTERVAL;
-        const int CMIN = 60000 / (BPM_MAX*HRM_POLL_INTERVAL);
-        const int CMAX = 60000 / (BPM_MIN*HRM_POLL_INTERVAL);
-        assert(CMAX<HRM_HISTORY_LEN);
-        uint8_t corr[CMAX];
-        int minCorr = 0x7FFFFFFF, maxCorr = 0;
-        int minIdx = 0;
-        for (int c=CMIN;c<CMAX;c++) {
-          int s = 0;
-          // correlate
-          for (int i=CMAX;i<HRM_HISTORY_LEN;i++) {
-            int d = hrmHistory[i] - hrmHistory[i-c];
-            s += d*d;
+        jsvObjectSetChildAndUnLock(o,"bpm",jsvNewFromInteger(hrmInfo.bpm10 / 10.0));
+        jsvObjectSetChildAndUnLock(o,"confidence",jsvNewFromInteger(hrmInfo.confidence));
+        JsVar *a = jsvNewEmptyArray();
+        if (a) {
+          int n = hrmInfo.timeIdx;
+          for (int i=0;i<HRM_HIST_LEN;i++) {
+            jsvArrayPushAndUnLock(a, jsvNewFromFloat(hrm_time_to_bpm10(hrmInfo.times[n]) / 10.0));
+            n++;
+            if (n==HRM_HIST_LEN) n=0;
           }
-          // store min and max
-          if (s<minCorr) {
-            minCorr = s;
-            minIdx = c;
-          }
-          if (s>maxCorr) {
-            maxCorr = s;
-          }
-          // store in 8 bit array
-          s = s>>10;
-          if (s>255) s=255;
-          corr[c] = s;
+          jsvObjectSetChildAndUnLock(o,"history",a);
         }
-        for (int c=0;c<CMIN;c++)
-          corr[c] = corr[CMIN]; // just fill in the lower data
-        // confidence depends on how good a fit correlation is (lower minCorr = better)
-        int confidence = 120 - (minCorr/600);
-        // but if maxCorr is low we don't have enough signal, so that's bad too
-        if (maxCorr<10000) confidence -= (10000-maxCorr)/50;
-
-        if (confidence<0) confidence=0;
-        if (confidence>100) confidence=100;
-
-        jsvObjectSetChildAndUnLock(o,"bpm",jsvNewFromInteger(60000 / (minIdx*HRM_POLL_INTERVAL)));
-        jsvObjectSetChildAndUnLock(o,"confidence",jsvNewFromInteger(confidence));
-        JsVar *s = jsvNewNativeString((char*)hrmHistory, sizeof(hrmHistory));
-        JsVar *ab = jsvNewArrayBufferFromString(s,0);
-        jsvObjectSetChildAndUnLock(o,"raw",jswrap_typedarray_constructor(ARRAYBUFFERVIEW_INT8,ab,0,0));
-        jsvUnLock2(ab,s);
-        // for debugging
-        if (false) {
-          jsvObjectSetChildAndUnLock(o,"minDifference",jsvNewFromInteger(minCorr));
-          jsvObjectSetChildAndUnLock(o,"maxDifference",jsvNewFromInteger(maxCorr));
-          s = jsvNewArrayBufferWithData(sizeof(corr),corr);
-          jsvObjectSetChildAndUnLock(o,"correlation",jswrap_typedarray_constructor(ARRAYBUFFERVIEW_UINT8,s,0,0));
-          jsvUnLock(s);
-        }
-
         jsiQueueObjectCallbacks(bangle, JS_EVENT_PREFIX"HRM", &o, 1);
         jsvUnLock(o);
       }
@@ -3628,15 +3625,20 @@ static void jswrap_banglejs_periph_off() {
 #endif
 
 #ifdef BTN2_PININDEX
-  nrf_gpio_cfg_sense_set(BTN2_PININDEX, NRF_GPIO_PIN_NOSENSE);
+  nrf_gpio_cfg_sense_set(pinInfo[BTN2_PININDEX].pin, NRF_GPIO_PIN_NOSENSE);
 #endif
 #ifdef BTN3_PININDEX
-  nrf_gpio_cfg_sense_set(BTN3_PININDEX, NRF_GPIO_PIN_NOSENSE);
+  nrf_gpio_cfg_sense_set(pinInfo[BTN3_PININDEX].pin, NRF_GPIO_PIN_NOSENSE);
 #endif
 #ifdef BTN4_PININDEX
-  nrf_gpio_cfg_sense_set(BTN4_PININDEX, NRF_GPIO_PIN_NOSENSE);
+  nrf_gpio_cfg_sense_set(pinInfo[BTN4_PININDEX].pin, NRF_GPIO_PIN_NOSENSE);
 #endif
-  nrf_gpio_cfg_sense_set(BTN1_PININDEX, NRF_GPIO_PIN_SENSE_LOW);
+  /* The low power pin watch code (nrf_drv_gpiote_in_init) somehow causes
+  the sensing to be disabled such that nrf_gpio_cfg_sense_set(pin, NRF_GPIO_PIN_SENSE_LOW)
+  no longer works. To work around this we just call our standard pin watch function
+  to re-enable everything. */
+  jshPinWatch(BTN1_PININDEX, true);
+
 
   jsiKill();
   jsvKill();
@@ -3660,6 +3662,7 @@ void jswrap_banglejs_off() {
 #ifndef EMSCRIPTEN
   jswrap_banglejs_periph_off();
   sd_power_system_off();
+  while(1);
 #else
   jsExceptionHere(JSET_ERROR, ".off not implemented on emulator");
 #endif
