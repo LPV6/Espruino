@@ -58,6 +58,7 @@ info = {
      'WRAPPERSOURCES += libs/graphics/jswrap_font_architekt35.c',
      'WRAPPERSOURCES += libs/graphics/jswrap_font_grotesk14.c',
      'WRAPPERSOURCES += libs/graphics/jswrap_font_grotesk16.c',
+     'SOURCES += libs/misc/stepcount.c',
      'JSMODULESOURCES += libs/js/banglejs/locale.min.js',
      'DEFINES += -DBANGLEJS',
 
