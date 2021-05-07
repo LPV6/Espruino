@@ -503,6 +503,9 @@ else
 	elif [ -d "/media/JLINK" ]; then cp $(PROJ_NAME).hex /media/JLINK;sync; fi
 endif
 
+partflash: all
+	nrfjprog --family $(FAMILY) --clockspeed 50000 --program $(PROJ_NAME).hex --sectorerase --reset;
+
 ifdef DFU_UPDATE_BUILD_WITH_HEX
 proj: $(PROJ_NAME).hex $(PROJ_NAME).zip
 else
