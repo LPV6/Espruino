@@ -280,7 +280,7 @@ void flashCheckAndRun() {
   spiFlashInit();
   FlashHeader header;
   spiFlashReadAddr((unsigned char *)&header, FLASH_HEADER_ADDRESS, sizeof(FlashHeader));
-  if (header.address==0xFFFFFFFF) {
+  if (header.address==0xFFFFFFFF || header.size==0) {
     // Not set - silently exit
     return;
   }
