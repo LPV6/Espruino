@@ -1378,6 +1378,7 @@ static void jswrap_banglejs_setLCDPowerBacklight(bool isOn) {
     JsSysTime t = jshGetTimeFromMilliseconds(10);
     jstExecuteFn(backlightFadeHandler, NULL, jshGetSystemTime()+t, t);
     lcdFadeHandlerActive = true;
+    backlightFadeHandler();
   }
 #else
   jswrap_banglejs_pwrBacklight(isOn && (lcdBrightness>0));
@@ -2305,7 +2306,6 @@ NO_INLINE void jswrap_banglejs_init() {
   lcdPowerOn = true;
   lcdBrightness = 255;
 #ifdef ESPR_BACKLIGHT_FADE
-  if (firstRun) lcdBrightness=0;
   realLcdBrightness = firstRun ? 0 : lcdBrightness;
   lcdFadeHandlerActive = false;
   jswrap_banglejs_setLCDPowerBacklight(lcdPowerOn);
