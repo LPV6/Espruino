@@ -3,6 +3,7 @@
             Bangle.js: Ignore touch and swipe events when the LCD is off
             Bangle.js: Don't reset all peripherals when loading a new app, and only
               turn peripherals off if unused 500ms after starting new app
+            Increase max arguments for Function.apply from 64 to 256
 
      2v09 : Bangle.js: increase default advertising interval from 375 to 200ms to ease connections
             Fix Math.acos for negative values (fix #1950)
