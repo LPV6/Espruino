@@ -2036,7 +2036,7 @@ bool jswrap_banglejs_setCompassPower(bool isOn, JsVar *appId) {
 #ifdef MAG_I2C
   bool wasOn = bangleFlags & JSBF_COMPASS_ON;
   isOn = setDeviceRequested("Compass", appId, isOn);
-  jsiConsolePrintf("setCompassPower %d %d\n",wasOn,isOn);
+  //jsiConsolePrintf("setCompassPower %d %d\n",wasOn,isOn);
 
   if (isOn) bangleFlags |= JSBF_COMPASS_ON;
   else bangleFlags &= ~JSBF_COMPASS_ON;
@@ -2273,13 +2273,13 @@ void jswrap_banglejs_postInit() {
   }
 #endif
 #ifdef PRESSURE_I2C
-  jsiConsolePrintf("Barometer %d %d\n",bangleFlags & JSBF_BAROMETER_ON, getDeviceRequested("Barom"));
+  //jsiConsolePrintf("Barometer %d %d\n",bangleFlags & JSBF_BAROMETER_ON, getDeviceRequested("Barom"));
   if ((bangleFlags & JSBF_BAROMETER_ON) && !getDeviceRequested("Barom")) {
     jswrap_banglejs_setBarometerPower(false, SETDEVICEPOWER_FORCE);
   }
 #endif
 #ifdef MAG_I2C
-  jsiConsolePrintf("Magnetometer %d %d\n",bangleFlags & JSBF_COMPASS_ON, getDeviceRequested("Compass"));
+  //jsiConsolePrintf("Magnetometer %d %d\n",bangleFlags & JSBF_COMPASS_ON, getDeviceRequested("Compass"));
   if ((bangleFlags & JSBF_COMPASS_ON) && !getDeviceRequested("Compass")) {
     jswrap_banglejs_setCompassPower(false, SETDEVICEPOWER_FORCE);
   }
@@ -2382,7 +2382,7 @@ NO_INLINE void jswrap_banglejs_init() {
 #endif
   }
 
-  jsiConsolePrintf("bangleFlags %d\n",bangleFlags);
+  //jsiConsolePrintf("bangleFlags %d\n",bangleFlags);
   if (firstRun)
     bangleFlags = JSBF_DEFAULT; // includes bangleFlags
   flipTimer = 0; // reset the LCD timeout timer
@@ -2728,7 +2728,7 @@ NO_INLINE void jswrap_banglejs_init() {
   if (!firstRun) {
     jsvUnLock(jsiSetTimeout(jswrap_banglejs_postInit, 500));
   }
-  jsiConsolePrintf("bangleFlags2 %d\n",bangleFlags);
+  //jsiConsolePrintf("bangleFlags2 %d\n",bangleFlags);
 }
 
 /*JSON{
