@@ -415,7 +415,6 @@ JsVar *jswrap_banglejs_getBarometerObject();
 #endif
 
 #ifdef HEARTRATE
-#define HRM_HISTORY_LEN 256
 #include "heartrate.h"
 #endif
 

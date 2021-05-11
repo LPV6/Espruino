@@ -57,6 +57,9 @@
 #if BLE_HIDS_ENABLED
 #include "ble_hids.h"
 #endif
+#if ESPR_BLUETOOTH_ANCS
+#include "bluetooth_ancs.h"
+#endif
 
 
 #if PEER_MANAGER_ENABLED
@@ -659,6 +662,7 @@ uint8_t match_request : 1;               If 1 requires the application to report
       case BLEP_TASK_AUTH_KEY_REQUEST: {
         //jsiConsolePrintf("BLEP_TASK_AUTH_KEY_REQUEST\n");
         uint16_t conn_handle = data;
+#if CENTRAL_LINK_COUNT>0
         if (conn_handle == m_central_conn_handle) {
           JsVar *gattServer = bleGetActiveBluetoothGattServer();
           if (gattServer) {
@@ -671,7 +675,9 @@ uint8_t match_request : 1;               If 1 requires the application to report
             }
             jsvUnLock2(gattServer, bluetoothDevice);
           }
-        } else if (conn_handle == m_peripheral_conn_handle) {
+        } else
+#endif
+        if (conn_handle == m_peripheral_conn_handle) {
           bool ok = false;
           JsVar *options = jsvObjectGetChild(execInfo.hiddenRoot, BLE_NAME_SECURITY, 0);
           if (jsvIsObject(options)) {
@@ -727,6 +733,11 @@ uint8_t match_request : 1;               If 1 requires the application to report
         }
         break;
       }
+#endif
+#ifdef ESPR_BLUETOOTH_ANCS
+      case BLEP_ANCS_NOTIF:
+        ble_ancs_handle_event(blep, (ble_ancs_c_evt_notif_t*)buffer);
+        break;
 #endif
    default:
      jsWarn("jsble_exec_pending: Unknown enum type %d",(int)blep);
@@ -1626,7 +1637,9 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt) {
 #if PEER_MANAGER_ENABLED
   ble_conn_state_on_ble_evt(p_ble_evt);
   pm_on_ble_evt(p_ble_evt);
-
+#endif
+#if ESPR_BLUETOOTH_ANCS
+  ble_ancs_on_ble_evt(p_ble_evt);
 #endif
   if (!((p_ble_evt->header.evt_id==BLE_GAP_EVT_CONNECTED) &&
         (p_ble_evt->evt.gap_evt.params.connected.role != BLE_GAP_ROLE_PERIPH)) &&
@@ -1739,6 +1752,10 @@ static void pm_evt_handler(pm_evt_t const * p_evt) {
                 //Note: This code will use the older bonded device in the white list and not add any newer bonded to it
                 //      You should check on what kind of white list policy your application should use.
             }
+#if ESPR_BLUETOOTH_ANCS
+            ble_ancs_bonding_succeeded(p_evt->conn_handle);
+#endif
+
         } break;
 
         case PM_EVT_CONN_SEC_FAILED:
@@ -2632,6 +2649,11 @@ void jsble_advertising_stop() {
    gap_params_init();
    services_init();
    conn_params_init();
+
+#if ESPR_BLUETOOTH_ANCS
+   ble_ancs_init();
+#endif
+
    // reset the status for things that aren't happening now we're rebooted
    bleStatus &= ~BLE_RESET_ON_SOFTDEVICE_START;
 
@@ -3263,6 +3285,16 @@ void jsble_central_startBonding(bool forceRePair) {
 #endif
 }
 
+uint32_t jsble_central_send_passkey(char *passkey) {
+#ifdef LINK_SECURITY
+  if (!jsble_has_central_connection())
+      return BLE_ERROR_INVALID_CONN_HANDLE;
+  return sd_ble_gap_auth_key_reply(m_central_conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, (uint8_t*)passkey);
+#endif
+}
+
+#endif // CENTRAL_LINK_COUNT>0
+
 void jsble_central_setWhitelist(bool whitelist) {
 #if PEER_MANAGER_ENABLED
   if (whitelist) {
@@ -3275,17 +3307,6 @@ void jsble_central_setWhitelist(bool whitelist) {
   }
 #endif
 }
-
-uint32_t jsble_central_send_passkey(char *passkey) {
-#ifdef LINK_SECURITY
-  if (!jsble_has_central_connection())
-      return BLE_ERROR_INVALID_CONN_HANDLE;
-  return sd_ble_gap_auth_key_reply(m_central_conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, (uint8_t*)passkey);
-#endif
-}
-
-#endif // CENTRAL_LINK_COUNT>0
-
 
 
 #endif // BLUETOOTH
