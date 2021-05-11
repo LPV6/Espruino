@@ -35,8 +35,9 @@ info = {
      'DEFINES += -DESPR_LSE_ENABLE=1', # Ensure low speed external osc enabled
      'DEFINES += -DNRF_SDH_BLE_GATT_MAX_MTU_SIZE=131', # 23+x*27 rule as per https://devzone.nordicsemi.com/f/nordic-q-a/44825/ios-mtu-size-why-only-185-bytes
      'LDFLAGS += -Xlinker --defsym=LD_APP_RAM_BASE=0x2ec0', # set RAM base to match MTU
-#     'DEFINES += -DESPR_REGOUT0_1_8V=1', # Leave REGOUT0 as 1.8v (not 3.3v) - seems to be what original watch firmware did
+#     'DEFINES += -DESPR_REGOUT0_1_8V=1', # Leave REGOUT0 as 1.8v (not 3.3v) - seems to be what original watch firmware did  
      'DEFINES += -DESPR_DCDC_ENABLE=1', # Use DC/DC converter
+     'ESPR_BLUETOOTH_ANCS=1', # Enable ANCS (Apple notifications) support
      'DEFINES += -DSPIFLASH_SLEEP_CMD', # SPI flash needs to be explicitly slept and woken up
      'DEFINES += -DESPR_USE_SPI3=1', # Use SPI3 (even though it has errata 195) as it's much faster
      'DEFINES += -DESPR_BACKLIGHT_FADE=1', # Smoothly fade backlight on and off
