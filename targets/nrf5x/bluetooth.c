@@ -281,8 +281,8 @@ JsVar *jsble_get_error_string(uint32_t err_code) {
    case BLE_ERROR_NO_TX_PACKETS : name="NO_TX_PACKETS"; break;
 #endif
   }
-  if (name) return jsvVarPrintf("BLE error 0x%x (%s)", err_code, name);
-  else return jsvVarPrintf("BLE error 0x%x", err_code);
+  if (name) return jsvVarPrintf("ERR 0x%x (%s)", err_code, name);
+  else return jsvVarPrintf("ERR 0x%x", err_code);
 }
 
 // -----------------------------------------------------------------------------------
@@ -324,7 +324,11 @@ void jsble_queue_pending(BLEPending blep, uint16_t data) {
 int jsble_exec_pending(IOEvent *event) {
   int eventsHandled = 1;
   // if we got event data, unpack it first into a buffer
+#if NRF_BLE_MAX_MTU_SIZE>64
+  unsigned char buffer[NRF_BLE_MAX_MTU_SIZE];
+#else
   unsigned char buffer[64];
+#endif
   assert(sizeof(buffer) >= sizeof(ble_gap_evt_adv_report_t));
   assert(sizeof(buffer) >= NRF_BLE_MAX_MTU_SIZE);
   size_t bufferLen = 0;
@@ -348,7 +352,7 @@ int jsble_exec_pending(IOEvent *event) {
    case BLEP_NONE: break;
    case BLEP_ERROR: {
      JsVar *v = jsble_get_error_string(data);
-     jsWarn("Softdevice error %v (bluetooth.c:%d)",v, *(uint32_t*)buffer);
+     jsWarn("SD %v (bluetooth.c:%d)",v, *(uint32_t*)buffer);
      jsvUnLock(v);
      break;
    }
@@ -1114,11 +1118,13 @@ static void ble_evt_handler(ble_evt_t * p_ble_evt) {
 static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context) {
 #endif
 
+  /*if (p_ble_evt->header.evt_id != 87) // ignore write complete
+    jsiConsolePrintf("[%d %d]\n", p_ble_evt->header.evt_id, p_ble_evt->evt.gattc_evt.params.hvx.handle );*/
 #if ESPR_BLUETOOTH_ANCS
   ble_ancs_on_ble_evt(p_ble_evt);
 #endif
     uint32_t err_code;
-    //jsiConsolePrintf("\n[%d %d]\n", p_ble_evt->header.evt_id, p_ble_evt->evt.gattc_evt.params.hvx.handle );
+
 
     switch (p_ble_evt->header.evt_id) {
       case BLE_GAP_EVT_TIMEOUT:
