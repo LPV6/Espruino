@@ -1113,6 +1113,10 @@ static void ble_evt_handler(ble_evt_t * p_ble_evt) {
 #else
 static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context) {
 #endif
+
+#if ESPR_BLUETOOTH_ANCS
+  ble_ancs_on_ble_evt(p_ble_evt);
+#endif
     uint32_t err_code;
     //jsiConsolePrintf("\n[%d %d]\n", p_ble_evt->header.evt_id, p_ble_evt->evt.gattc_evt.params.hvx.handle );
 
@@ -1637,9 +1641,6 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt) {
 #if PEER_MANAGER_ENABLED
   ble_conn_state_on_ble_evt(p_ble_evt);
   pm_on_ble_evt(p_ble_evt);
-#endif
-#if ESPR_BLUETOOTH_ANCS
-  ble_ancs_on_ble_evt(p_ble_evt);
 #endif
   if (!((p_ble_evt->header.evt_id==BLE_GAP_EVT_CONNECTED) &&
         (p_ble_evt->evt.gap_evt.params.connected.role != BLE_GAP_ROLE_PERIPH)) &&
