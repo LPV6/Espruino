@@ -255,25 +255,18 @@ __attribute__( ( long_call, section(".data") ) ) void flashDoUpdate(FlashHeader 
     xlcd_rect(60,192,60+percent,198,true);
     NRF_WDT->RR[0] = 0x6E524635; // kick watchdog
   }
-  // Now erase the first page of flash so we don't get into a boot loop
-  addr = FLASH_HEADER_ADDRESS;
-  unsigned char b[4];
-  b[0] = 0x06; // WREN
-  spiFlashWriteCS(b,1);
-  for (volatile int i=0;i<1000;i++);
-  b[0] = 0x20; // Erase
-  b[1] = addr>>16;
-  b[2] = addr>>8;
-  b[3] = addr;
-  spiFlashWriteCS(b,4);
-  // Check if flash busy
-  while (spiFlashStatus()&1); // while 'Write in Progress'...
   // clear progress bar
   xlcd_rect(60,180,180,200,false);
-  //flashEqual(header);
+  // re-read all data just to try and clear any caches
+  size = header.size;
+  outaddr = header.address;
+  volatile int v;
+  while (size--) {
+    v = *(char*)outaddr;
+    outaddr++;
+  }
   // done!
-  for (volatile int i=0;i<5000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
-  NVIC_SystemReset(); // reset!
+  while (true) NVIC_SystemReset(); // reset!
 }
 
 void flashCheckAndRun() {
@@ -291,6 +284,7 @@ void flashCheckAndRun() {
   lcd_print_hex(header.version); lcd_println(" VERSION");
   if (header.address==0xf7000) return; // NO BOOTLOADER - FOR TESTING
   // Calculate CRC
+  lcd_println("CRC TEST...");
   unsigned char buf[256];
   int size = header.size;
   int inaddr = FLASH_HEADER_ADDRESS + sizeof(FlashHeader);
@@ -303,21 +297,56 @@ void flashCheckAndRun() {
     inaddr += l;
     size -= l;
   }
+  bool isEqual = false;
   if (crc != header.CRC) {
     // CRC is wrong - exits
     lcd_println("CRC MISMATCH");
     lcd_print_hex(crc); lcd_println("");lcd_println("");
-    nrf_delay_us(1000000);
+    for (volatile int i=0;i<5000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
+  } else {
+    // All ok - check we haven't already flashed this!
+    lcd_println("TESTING...");
+    isEqual = flashEqual(header);
+  }
+  lcd_println("REMOVE HEADER.");
+  // Now erase the first page of flash so we don't get into a boot loop
+  unsigned char b[20];
+  b[0] = 0x06; // WREN
+  spiFlashWriteCS(b,1);
+  for (volatile int i=0;i<1000;i++);
+  b[0] = 0x02; // Write
+  b[1] = FLASH_HEADER_ADDRESS>>16;
+  b[2] = FLASH_HEADER_ADDRESS>>8;
+  b[3] = FLASH_HEADER_ADDRESS;
+  memset(&b[4], 0, 16);
+  spiFlashWriteCS(b,4+16); // write command plus 16 bytes of zeros
+  // Check if flash busy
+  while (spiFlashStatus()&1); // while 'Write in Progress'...
+  FlashHeader header2;
+  spiFlashReadAddr((unsigned char *)&header2, FLASH_HEADER_ADDRESS, sizeof(FlashHeader));
+  // read a second time just in case
+  spiFlashReadAddr((unsigned char *)&header2, FLASH_HEADER_ADDRESS, sizeof(FlashHeader));
+  if (header2.address != 0) {
+    lcd_println("ERASE FAIL. EXIT.");
+    for (volatile int i=0;i<5000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
     return;
   }
-  // All ok - check we haven't already flashed this!
-  if (!flashEqual(header)) {
+
+  if (!isEqual) {
     lcd_println("BINARY DIFF. FLASHING...");
+
     xlcd_rect(60,180,180,180,true);
     xlcd_rect(60,190,180,190,true);
     xlcd_rect(60,200,180,200,true);
 
     flashDoUpdate(header);
+
+    /*isEqual = flashEqual(header);
+    if (isEqual) lcd_println("EQUAL");
+    else lcd_println("NOT EQUAL");
+
+    for (volatile int i=0;i<5000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
+    while (true) NVIC_SystemReset(); */
   } else {
     lcd_println("BINARY MATCHES.");
   }
