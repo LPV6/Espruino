@@ -82,6 +82,7 @@ info = {
      'DEFINES += -DESPR_USE_SPI3=1', # Use SPI3 (even though it has errata 195) as it's much faster
      'DEFINES += -DESPR_BACKLIGHT_FADE=1', # Smoothly fade backlight on and off
      'DEFINES += -DNRF_BL_DFU_ENTER_METHOD_BUTTON=1 -DNRF_BL_DFU_ENTER_METHOD_BUTTON_PIN=29',
+     'DEFINES += -DNRF_BOOTLOADER_NO_WRITE_PROTECT=1', # By default the bootloader protects flash. Avoid this (a patch for NRF_BOOTLOADER_NO_WRITE_PROTECT must be applied first)
      'DEFINES += -DBUTTONPRESS_TO_REBOOT_BOOTLOADER',
      'DEFINES += -DESPR_BOOTLOADER_SPIFLASH', # Allow bootloader to flash direct from SPI flash
      'DEFINES += -DAPP_TIMER_OP_QUEUE_SIZE=6', # Bangle.js accelerometer poll handler needs something else in queue size
