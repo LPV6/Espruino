@@ -114,9 +114,8 @@ devices = {
             'pin_mosi' : 'D5',
             'pin_miso' : 'D27',
             'pin_en' : 'D43', 
-            'pin_bl' : 'D32',
+            'pin_bl' : 'D32', # backlight negated in get_pins below
             'pin_tearing' : 'D24',
-            'backlight_inverted' : 1,
             'bitrate' : 32000000
           },
   'BAT' : {
@@ -177,6 +176,8 @@ def get_pins():
   pinutils.findpin(pins, "PD46", True)["functions"]["NEGATED"]=0; # ok
   pinutils.findpin(pins, "PD42", True)["functions"]["NEGATED"]=0; # ok
   pinutils.findpin(pins, "PD28", True)["functions"]["NEGATED"]=0; # ok
+  # Negate backlight
+  pinutils.findpin(pins, "PD32", True)["functions"]["NEGATED"]=0; # ok
   
 
   # everything is non-5v tlerant
