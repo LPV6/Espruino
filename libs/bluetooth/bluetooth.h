@@ -108,6 +108,9 @@ typedef enum  {
   BLE_WHITELIST_ON_BOND = 8192,  //< Should we write to the whitelist whenever we bond to a device?
   BLE_DISABLE_DYNAMIC_INTERVAL = 16384, //< Disable automatically changing interval based on BLE peripheral activity
   BLE_ENCRYPT_UART = 32768,  //< Has security with encryption been requested (if so UART must require it)
+#ifdef ESPR_BLUETOOTH_ANCS
+  BLE_ANCS_INITED,            //< Apple Notification Centre enabled
+#endif
 
   BLE_IS_ADVERTISING_MULTIPLE = 65536, // We have multiple different advertising packets
   BLE_ADVERTISING_MULTIPLE_ONE = 131072,
