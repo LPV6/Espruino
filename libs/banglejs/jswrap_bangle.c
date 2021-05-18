@@ -2723,7 +2723,7 @@ NO_INLINE void jswrap_banglejs_init() {
   /* If it's the first time we've started and Storage is empty,
   run the self test code */
   if (firstRun && jsfIsStorageEmpty()) {
-    /*
+/*
 clearWatch();
 clearInterval();
 Bangle.setLCDBrightness(1);
@@ -2731,15 +2731,33 @@ Bangle.setLCDPower(1);
 Bangle.setLCDTimeout(0);
 g.reset().setBgColor(-1).clear();
 g.setColor(0).setFont('6x8').setFontAlign(0,-1);
-g.drawString('Firmware version', 120,160);
-g.drawString(process.env.VERSION, 120,170);
-function draw() {
+g.drawString('Firmware version',120,30);
+g.drawString(process.env.VERSION,120,40);
+g.drawString('Bluetooth address',120,60);
+g.drawString(NRF.getAddress(),120,70);
+g.drawString('Not connected',120,80);
+let r;
+NRF.on('connect',()=>{
+  NRF.setRSSIHandler(rssi=>{
+    if(!r) r=rssi;
+    else r=r*0.95+rssi*0.05;
+    g.setColor(0).clearRect(40,80,199,100);
+    g.drawString('Connected - RSSI: '+Math.round(r),120,80);
+    g.fillRect(50,92,Math.max(40,Math.min(190,240+r*2)),95);
+  });
+});
+NRF.on('disconnect',()=>{
+  r=0;
+  g.setColor(0).clearRect(40,80,199,100);
+  g.drawString('Not connected',120,80);
+});
+function draw(){
   c = c=>g.setColor(c?'#ff0000':-1);
   c(BTN1.read());g.fillRect(200,0,239,120);
   c(BTN2.read());g.fillRect(200,120,239,239);
   c(BTN3.read());g.fillRect(0,120,39,239);
   c(BTN4.read());g.fillRect(0,0,39,120);
-  if (BTN1.read()&&BTN2.read()) {
+  if (BTN1.read()&&BTN2.read()){
     clearWatch();
     g.setBgColor('#202020').clear();
     setWatch(Bangle.off,BTN1,{edge:-1});
@@ -2750,30 +2768,38 @@ Bangle.buzz();
 draw();
 
 Bangle.on('accel',a=>{
-  g.setColor(0).clearRect(40,60,199,80);
-  g.drawString('Accel',120,60);
-  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,70);
+  g.setColor(0).clearRect(40,105,199,125);
+  g.drawString('Accel',120,105);
+  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)],120,115);
 });
-let m={}
+let m={};
 Bangle.on('mag',a=>{
   x=a.x.toFixed(0);
   y=a.y.toFixed(0);
   z=a.z.toFixed(0);
   if (!m.x) {m.x=x; m.y=y; m.z=z;}
-  g.setColor(0).clearRect(40,100,199,120);
-  g.drawString('Mag',120,90);
-  g.drawString([x,y,z], 120,100);
-  g.drawString([x-m.x,y-m.y,z-m.z], 120,110);
+  g.setColor(0).clearRect(40,130,199,160);
+  g.drawString('Mag',120,130);
+  g.drawString([x,y,z],120,140);
+  g.drawString([x-m.x,y-m.y,z-m.z],120,150);
 });
 Bangle.setCompassPower(1);
 Bangle.on('pressure',a=>{
-  g.setColor(0).clearRect(40,130,199,150);
-  g.drawString('Temperature '+a.temperature.toFixed(2),120,130);
-  g.drawString('Pressure '+a.pressure.toFixed(2), 120,140);
+  g.setColor(0).clearRect(40,165,199,210);
+  g.drawString('Temperature: '+a.temperature.toFixed(2),120,165);
+  g.drawString('Pressure: '+a.pressure.toFixed(2),120,175);
+  let v=0, vRef=0, avg=5;
+  for (let i=0; i<avg; i++){
+    v+=analogRead(D4)/avg;
+    vRef+=E.getAnalogVRef()/avg;
+  }
+  v*=2*vRef;
+  g.drawString(`Battery: ${v.toFixed(2)} V`,120,190);
+  g.drawString(`Charging: ${Bangle.isCharging()?'YES':'NO'}`,120,200);
 });
 Bangle.setBarometerPower(1);
-     */
-    jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(0);\ng.reset().setBgColor(-1).clear();\ng.setColor(0).setFont('6x8').setFontAlign(0,-1);\ng.drawString('Firmware version', 120,160);\ng.drawString(process.env.VERSION, 120,170);\nfunction draw() {\n  c = c=>g.setColor(c?'#ff0000':-1);\n  c(BTN1.read());g.fillRect(200,0,239,120);\n  c(BTN2.read());g.fillRect(200,120,239,239);\n  c(BTN3.read());g.fillRect(0,120,39,239);\n  c(BTN4.read());g.fillRect(0,0,39,120);\n  if (BTN1.read()&&BTN2.read()) {\n    clearWatch();\n    g.setBgColor('#202020').clear();\n    setWatch(Bangle.off,BTN1,{edge:-1});\n  }\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));\nBangle.buzz();\ndraw();\n\nBangle.on('accel',a=>{\n  g.setColor(0).clearRect(40,60,199,80);\n  g.drawString('Accel',120,60);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,70);\n});\nlet m={}\nBangle.on('mag',a=>{\n  x=a.x.toFixed(0);\n  y=a.y.toFixed(0);\n  z=a.z.toFixed(0);\n  if (!m.x) {m.x=x; m.y=y; m.z=z;}\n  g.setColor(0).clearRect(40,100,199,120);\n  g.drawString('Mag',120,90);\n  g.drawString([x,y,z], 120,100);\n  g.drawString([x-m.x,y-m.y,z-m.z], 120,110);\n});\nBangle.setCompassPower(1);\nBangle.on('pressure',a=>{\n  g.setColor(0).clearRect(40,130,199,150);\n  g.drawString('Temperature '+a.temperature.toFixed(2),120,130);\n  g.drawString('Pressure '+a.pressure.toFixed(2), 120,140);\n});\nBangle.setBarometerPower(1);", true));
+*/
+    jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(0);\ng.reset().setBgColor(-1).clear();\ng.setColor(0).setFont('6x8').setFontAlign(0,-1);\ng.drawString('Firmware version',120,30);\ng.drawString(process.env.VERSION,120,40);\ng.drawString('Bluetooth address',120,60);\ng.drawString(NRF.getAddress(),120,70);\ng.drawString('Not connected',120,80);\nlet r;\nNRF.on('connect',()=>{\n  NRF.setRSSIHandler(rssi=>{\n    if(!r) r=rssi;\n    else r=r*0.95+rssi*0.05;\n    g.setColor(0).clearRect(40,80,199,100);\n    g.drawString('Connected - RSSI: '+Math.round(r),120,80);\n    g.fillRect(50,92,Math.max(40,Math.min(190,240+r*2)),95);\n  });\n});\nNRF.on('disconnect',()=>{\n  r=0;\n  g.setColor(0).clearRect(40,80,199,100);\n  g.drawString('Not connected',120,80);\n});\nfunction draw(){\n  c = c=>g.setColor(c?'#ff0000':-1);\n  c(BTN1.read());g.fillRect(200,0,239,120);\n  c(BTN2.read());g.fillRect(200,120,239,239);\n  c(BTN3.read());g.fillRect(0,120,39,239);\n  c(BTN4.read());g.fillRect(0,0,39,120);\n  if (BTN1.read()&&BTN2.read()){\n    clearWatch();\n    g.setBgColor('#202020').clear();\n    setWatch(Bangle.off,BTN1,{edge:-1});\n  }\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));\nBangle.buzz();\ndraw();\n\nBangle.on('accel',a=>{\n  g.setColor(0).clearRect(40,105,199,125);\n  g.drawString('Accel',120,105);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)],120,115);\n});\nlet m={};\nBangle.on('mag',a=>{\n  x=a.x.toFixed(0);\n  y=a.y.toFixed(0);\n  z=a.z.toFixed(0);\n  if (!m.x) {m.x=x; m.y=y; m.z=z;}\n  g.setColor(0).clearRect(40,130,199,160);\n  g.drawString('Mag',120,130);\n  g.drawString([x,y,z],120,140);\n  g.drawString([x-m.x,y-m.y,z-m.z],120,150);\n});\nBangle.setCompassPower(1);\nBangle.on('pressure',a=>{\n  g.setColor(0).clearRect(40,165,199,210);\n  g.drawString('Temperature: '+a.temperature.toFixed(2),120,165);\n  g.drawString('Pressure: '+a.pressure.toFixed(2),120,175);\n  let v=0, vRef=0, avg=5;\n  for (let i=0; i<avg; i++){\n    v+=analogRead(D4)/avg;\n    vRef+=E.getAnalogVRef()/avg;\n  }\n  v*=2*vRef;\n  g.drawString(`Battery: ${v.toFixed(2)} V`,120,190);\n  g.drawString(`Charging: ${Bangle.isCharging()?'YES':'NO'}`,120,200);\n});\nBangle.setBarometerPower(1);", true));
   }
 #endif
   //jsiConsolePrintf("bangleFlags2 %d\n",bangleFlags);
