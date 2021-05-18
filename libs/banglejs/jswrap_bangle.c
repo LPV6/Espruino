@@ -2716,6 +2716,57 @@ NO_INLINE void jswrap_banglejs_init() {
   if (!firstRun) {
     jsvUnLock(jsiSetTimeout(jswrap_banglejs_postInit, 500));
   }
+
+#ifdef DICKENS
+  /* If it's the first time we've started and Storage is empty,
+  run the self test code */
+  if (firstRun && jsfIsStorageEmpty()) {
+    /*
+clearWatch();
+clearInterval();
+Bangle.setLCDBrightness(1);
+Bangle.setLCDPower(1);
+Bangle.setLCDTimeout(0);
+g.reset().setBgColor(-1).clear();
+var off=false;
+function draw() {
+  c = c=>g.setColor(c?"#ff0000":-1);
+  c(BTN1.read());g.fillRect(200,0,239,120);
+  c(BTN2.read());g.fillRect(200,120,239,239);
+  c(BTN3.read());g.fillRect(0,120,39,239);
+  c(BTN4.read());g.fillRect(0,0,39,120);
+  if (off && !(BTN1.read()||BTN2.read())) Bangle.off();
+  if (BTN1.read()&&BTN2.read()) off=true;
+}
+[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));
+Bangle.buzz();
+draw();
+
+
+Bangle.on('accel',a=>{
+  g.setColor(0).setFont("6x8").setFontAlign(0,-1);
+  g.clearRect(40,70,199,90);
+  g.drawString("Accel",120,70);
+  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,80);
+});
+Bangle.on('mag',a=>{
+  g.setColor(0).setFont("6x8").setFontAlign(0,-1);
+  g.clearRect(40,100,199,120);
+  g.drawString("Mag",120,100);
+  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,110);
+});
+Bangle.setCompassPower(1);
+Bangle.on('pressure',a=>{
+  g.setColor(0).setFont("6x8").setFontAlign(0,-1);
+  g.clearRect(40,130,199,150);
+  g.drawString("Temperature "+a.temperature.toFixed(2),120,130);
+  g.drawString("Pressure "+Math.round(a.pressure), 120,140);
+});
+Bangle.setBarometerPower(1);
+     */
+    jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(0);\ng.reset().setBgColor(-1).clear();\nvar off=false;\nfunction draw() {\n  c = c=>g.setColor(c?\"#ff0000\":-1);\n  c(BTN1.read());g.fillRect(200,0,239,120);\n  c(BTN2.read());g.fillRect(200,120,239,239);\n  c(BTN3.read());g.fillRect(0,120,39,239);\n  c(BTN4.read());g.fillRect(0,0,39,120);\n  if (off && !(BTN1.read()||BTN2.read())) Bangle.off();\n  if (BTN1.read()&&BTN2.read()) off=true;\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));\nBangle.buzz();\ndraw();\n\n\nBangle.on('accel',a=>{  \n  g.setColor(0).setFont(\"6x8\").setFontAlign(0,-1);\n  g.clearRect(40,70,199,90); \n  g.drawString(\"Accel\",120,70);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,80);\n});\nBangle.on('mag',a=>{  \n  g.setColor(0).setFont(\"6x8\").setFontAlign(0,-1);\n  g.clearRect(40,100,199,120); \n  g.drawString(\"Mag\",120,100);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,110);\n});\nBangle.setCompassPower(1);\nBangle.on('pressure',a=>{  \n  g.setColor(0).setFont(\"6x8\").setFontAlign(0,-1);\n  g.clearRect(40,130,199,150); \n  g.drawString(\"Temperature \"+a.temperature.toFixed(2),120,130);\n  g.drawString(\"Pressure \"+Math.round(a.pressure), 120,140);\n});\nBangle.setBarometerPower(1);", true));
+  }
+#endif
   //jsiConsolePrintf("bangleFlags2 %d\n",bangleFlags);
 }
 
@@ -4179,8 +4230,6 @@ On Bangle.js there are no LEDs, so to remain compatible with example code that m
 expect an LED, this is an object that behaves like a pin, but which just displays
 a circle on the display
 */
-
-
 /*JSON{
   "type" : "variable",
   "name" : "BTN1",
