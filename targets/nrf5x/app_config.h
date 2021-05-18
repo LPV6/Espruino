@@ -127,4 +127,12 @@
 #define UART1_CONFIG_USE_EASY_DMA 1
 #endif
 
+#if ESPR_LSE_ENABLE
+#define NRF_SDH_CLOCK_LF_SRC 1 // 32.768 kHz crystal clock
+// SoftDevice calibration timer interval.
+#define NRF_SDH_CLOCK_LF_RC_CTIV 0
+// SoftDevice calibration timer interval under constant temperature.
+#define NRF_SDH_CLOCK_LF_RC_TEMP_CTIV 0
+#endif
+
 // Other SDK configs are still in sdk_config.h
