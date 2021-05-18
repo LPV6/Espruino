@@ -770,10 +770,12 @@ void peripheralPollHandler() {
     if (homeBtnTimer < TIMER_MAX) {
       homeBtnTimer += pollInterval;
       if (homeBtnTimer >= BTN_LOAD_TIMEOUT) {
-        bangleTasks |= JSBT_RESET;
-        jshHadEvent();
+        if (!jsfIsStorageEmpty()) { // Only reset if there's something in flash storage
+          bangleTasks |= JSBT_RESET;
+          jshHadEvent();
+        }
         homeBtnTimer = TIMER_MAX;
-        // Allow BTN3 to break out of debugger
+        // Allow home button to break out of debugger
         if (jsiStatus & JSIS_IN_DEBUGGER) {
           jsiStatus |= JSIS_EXIT_DEBUGGER;
           execInfo.execute |= EXEC_INTERRUPTED;
@@ -2728,43 +2730,46 @@ Bangle.setLCDBrightness(1);
 Bangle.setLCDPower(1);
 Bangle.setLCDTimeout(0);
 g.reset().setBgColor(-1).clear();
-var off=false;
+g.setColor(0).setFont('6x8').setFontAlign(0,-1);
+g.drawString('Firmware version', 120,160);
+g.drawString(process.env.VERSION, 120,170);
 function draw() {
-  c = c=>g.setColor(c?"#ff0000":-1);
+  c = c=>g.setColor(c?'#ff0000':-1);
   c(BTN1.read());g.fillRect(200,0,239,120);
   c(BTN2.read());g.fillRect(200,120,239,239);
   c(BTN3.read());g.fillRect(0,120,39,239);
   c(BTN4.read());g.fillRect(0,0,39,120);
-  if (off && !(BTN1.read()||BTN2.read())) Bangle.off();
-  if (BTN1.read()&&BTN2.read()) off=true;
+  if (BTN1.read()&&BTN2.read()) Bangle.off();
 }
 [BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));
 Bangle.buzz();
 draw();
 
-
 Bangle.on('accel',a=>{
-  g.setColor(0).setFont("6x8").setFontAlign(0,-1);
-  g.clearRect(40,70,199,90);
-  g.drawString("Accel",120,70);
-  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,80);
+  g.setColor(0).clearRect(40,60,199,80);
+  g.drawString('Accel',120,60);
+  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,70);
 });
+let m={}
 Bangle.on('mag',a=>{
-  g.setColor(0).setFont("6x8").setFontAlign(0,-1);
-  g.clearRect(40,100,199,120);
-  g.drawString("Mag",120,100);
-  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,110);
+  x=a.x.toFixed(0);
+  y=a.y.toFixed(0);
+  z=a.z.toFixed(0);
+  if (!m.x) {m.x=x; m.y=y; m.z=z;}
+  g.setColor(0).clearRect(40,100,199,120);
+  g.drawString('Mag',120,90);
+  g.drawString([x,y,z], 120,100);
+  g.drawString([x-m.x,y-m.y,z-m.z], 120,110);
 });
 Bangle.setCompassPower(1);
 Bangle.on('pressure',a=>{
-  g.setColor(0).setFont("6x8").setFontAlign(0,-1);
-  g.clearRect(40,130,199,150);
-  g.drawString("Temperature "+a.temperature.toFixed(2),120,130);
-  g.drawString("Pressure "+Math.round(a.pressure), 120,140);
+  g.setColor(0).clearRect(40,130,199,150);
+  g.drawString('Temperature '+a.temperature.toFixed(2),120,130);
+  g.drawString('Pressure '+a.pressure.toFixed(2), 120,140);
 });
 Bangle.setBarometerPower(1);
      */
-    jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(0);\ng.reset().setBgColor(-1).clear();\nvar off=false;\nfunction draw() {\n  c = c=>g.setColor(c?\"#ff0000\":-1);\n  c(BTN1.read());g.fillRect(200,0,239,120);\n  c(BTN2.read());g.fillRect(200,120,239,239);\n  c(BTN3.read());g.fillRect(0,120,39,239);\n  c(BTN4.read());g.fillRect(0,0,39,120);\n  if (off && !(BTN1.read()||BTN2.read())) Bangle.off();\n  if (BTN1.read()&&BTN2.read()) off=true;\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));\nBangle.buzz();\ndraw();\n\n\nBangle.on('accel',a=>{  \n  g.setColor(0).setFont(\"6x8\").setFontAlign(0,-1);\n  g.clearRect(40,70,199,90); \n  g.drawString(\"Accel\",120,70);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,80);\n});\nBangle.on('mag',a=>{  \n  g.setColor(0).setFont(\"6x8\").setFontAlign(0,-1);\n  g.clearRect(40,100,199,120); \n  g.drawString(\"Mag\",120,100);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,110);\n});\nBangle.setCompassPower(1);\nBangle.on('pressure',a=>{  \n  g.setColor(0).setFont(\"6x8\").setFontAlign(0,-1);\n  g.clearRect(40,130,199,150); \n  g.drawString(\"Temperature \"+a.temperature.toFixed(2),120,130);\n  g.drawString(\"Pressure \"+Math.round(a.pressure), 120,140);\n});\nBangle.setBarometerPower(1);", true));
+    jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(0);\ng.reset().setBgColor(-1).clear();\ng.setColor(0).setFont('6x8').setFontAlign(0,-1);\ng.drawString('Firmware version', 120,160);\ng.drawString(process.env.VERSION, 120,170);\nfunction draw() {\n  c = c=>g.setColor(c?'#ff0000':-1);\n  c(BTN1.read());g.fillRect(200,0,239,120);\n  c(BTN2.read());g.fillRect(200,120,239,239);\n  c(BTN3.read());g.fillRect(0,120,39,239);\n  c(BTN4.read());g.fillRect(0,0,39,120);\n  if (BTN1.read()&&BTN2.read()) Bangle.off();\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));\nBangle.buzz();\ndraw();\n\nBangle.on('accel',a=>{\n  g.setColor(0).clearRect(40,60,199,80);\n  g.drawString('Accel',120,60);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)], 120,70);\n});\nlet m={}\nBangle.on('mag',a=>{\n  x=a.x.toFixed(0);\n  y=a.y.toFixed(0);\n  z=a.z.toFixed(0);\n  if (!m.x) {m.x=x; m.y=y; m.z=z;}\n  g.setColor(0).clearRect(40,100,199,120);\n  g.drawString('Mag',120,90);\n  g.drawString([x,y,z], 120,100);\n  g.drawString([x-m.x,y-m.y,z-m.z], 120,110);\n});\nBangle.setCompassPower(1);\nBangle.on('pressure',a=>{\n  g.setColor(0).clearRect(40,130,199,150);\n  g.drawString('Temperature '+a.temperature.toFixed(2),120,130);\n  g.drawString('Pressure '+a.pressure.toFixed(2), 120,140);\n});\nBangle.setBarometerPower(1);", true));
   }
 #endif
   //jsiConsolePrintf("bangleFlags2 %d\n",bangleFlags);
