@@ -810,15 +810,6 @@ void jsble_peripheral_activity() {
 #endif
 }
 
-/// Checks for error and reports an exception if there was one. Return true on error
-bool jsble_check_error(uint32_t err_code) {
-  JsVar *v = jsble_get_error_string(err_code);
-  if (!v) return 0;
-  jsExceptionHere(JSET_ERROR, "%v", v);
-  jsvUnLock(v);
-  return true;
-}
-
 // -----------------------------------------------------------------------------------
 // --------------------------------------------------------------------------- ERRORS
 
@@ -881,6 +872,20 @@ static void service_error_handler(uint32_t nrf_error) {
   APP_ERROR_CHECK_NOT_URGENT(nrf_error);
 }
 #endif
+
+/// Checks for error and reports an exception if there was one. Return true on error
+bool jsble_check_error(uint32_t err_code) {
+  if (!err_code) return false; // no error!
+  if (!execInfo.root) {
+    // uh-oh... No interpreter. We need to hard error!
+    ble_app_error_handler(err_code,0,"jsble_check_error");
+  }
+  JsVar *v = jsble_get_error_string(err_code);
+  if (!v) return 0;
+  jsExceptionHere(JSET_ERROR, "%v", v);
+  jsvUnLock(v);
+  return true;
+}
 
 #if NRF_LOG_ENABLED
 void nrf_log_frontend_std_0(uint32_t severity_mid, char const * const p_str) {
