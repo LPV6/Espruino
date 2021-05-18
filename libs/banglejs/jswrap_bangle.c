@@ -3702,7 +3702,9 @@ static void jswrap_banglejs_periph_off() {
   jswrap_banglejs_pwrGPS(false); // GPS off
 #endif
   jshPinOutput(VIBRATE_PIN,0); // vibrate off
-  jswrap_banglejs_setLCDPower(0);
+  //jswrap_banglejs_setLCDPower calls JS events (and sometimes timers), so avoid it and manually turn controller + backlight off:
+  jswrap_banglejs_setLCDPowerController(0);
+  jswrap_banglejs_pwrBacklight(0);
 #ifdef ACCEL_DEVICE_KX023
   jswrap_banglejs_accelWr(0x18,0x0a); // accelerometer off
 #endif
@@ -3731,15 +3733,9 @@ static void jswrap_banglejs_periph_off() {
 #ifdef BTN4_PININDEX
   nrf_gpio_cfg_sense_set(pinInfo[BTN4_PININDEX].pin, NRF_GPIO_PIN_NOSENSE);
 #endif
-  /* The low power pin watch code (nrf_drv_gpiote_in_init) somehow causes
-  the sensing to be disabled such that nrf_gpio_cfg_sense_set(pin, NRF_GPIO_PIN_SENSE_LOW)
-  no longer works. To work around this we just call our standard pin watch function
-  to re-enable everything. */
-  jshPinWatch(BTN1_PININDEX, true);
 
-
-  jsiKill();
-  jsvKill();
+  //jsiKill(); // the call to jswrap_banglejs_kill via jswInit can cause increased power draw
+  //jsvKill();
   jshKill();
 #else
   jsExceptionHere(JSET_ERROR, ".off not implemented on emulator");
@@ -3759,6 +3755,11 @@ Turn Bangle.js off. It can only be woken by pressing BTN1.
 void jswrap_banglejs_off() {
 #ifndef EMSCRIPTEN
   jswrap_banglejs_periph_off();
+  /* The low power pin watch code (nrf_drv_gpiote_in_init) somehow causes
+  the sensing to be disabled such that nrf_gpio_cfg_sense_set(pin, NRF_GPIO_PIN_SENSE_LOW)
+  no longer works. To work around this we just call our standard pin watch function
+  to re-enable everything. */
+  jshPinWatch(BTN1_PININDEX, true);
   sd_power_system_off();
   while(1);
 #else
@@ -3783,6 +3784,10 @@ void jswrap_banglejs_softOff() {
   jswrap_ble_sleep();
   jswrap_banglejs_periph_off();
   jshDelayMicroseconds(100000); // wait 100ms for any button bounce to disappear
+  // Use jshSetEventCallback to set jshHadEvent as the button handler
+  // has the effect of leaving jshSleep but also ensures that we don't try and
+  // insert an event into the event queue since everything is unallocated at
+  // this point
   IOEventFlags channel = jshPinWatch(BTN1_PININDEX, true);
   if (channel!=EV_NONE) jshSetEventCallback(channel, (JshEventCallbackCallback)jshHadEvent);
   // keep sleeping until a button is pressed
