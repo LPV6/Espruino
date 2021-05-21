@@ -516,7 +516,7 @@ int accelGestureMinLength = 10;
 /// How much acceleration to register a twist of the watch strap?
 int twistThreshold = 600;
 /// Maximum absolute acceleration in X to trigger a twist (high X means the user's arm is probably hanging down)
-int twistMaxX = 2000;
+int twistMaxX = 4800;
 /// Maximum acceleration in Y to trigger a twist (low Y means watch is facing the right way up)
 int twistMaxY = -800;
 /// How little time (in ms) must a twist take from low->high acceleration?
@@ -1724,7 +1724,7 @@ Set internal options used for gestures, etc...
 * `wakeOnTouch` should the LCD turn on when the touchscreen is pressed? default = `false`
 * `wakeOnTwist` should the LCD turn on when the watch is twisted? default = `true`
 * `twistThreshold`  How much acceleration to register a twist of the watch strap? Can be negative for oppsite direction. default = `600`
-* `twistMaxX` Maximum absolute acceleration in X to trigger a twist (high X means the user's arm is probably hanging down). default = `2000`
+* `twistMaxX` Maximum absolute acceleration in X to trigger a twist (high X means the user's arm is probably hanging down). default = `4800`
 * `twistMaxY` Maximum acceleration in Y to trigger a twist (low Y means watch is facing the right way up). default = `-800`
 * `twistTimeout`  How little time (in ms) must a twist take from low->high acceleration? default = `1000`
 * `gestureStartThresh` how big a difference before we consider a gesture started? default = `sqr(800)`
