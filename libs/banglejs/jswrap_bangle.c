@@ -514,7 +514,9 @@ int accelGestureInactiveCount = 4;
 /// how many samples must a gesture have before we notify about it?
 int accelGestureMinLength = 10;
 /// How much acceleration to register a twist of the watch strap?
-int twistThreshold = 800;
+int twistThreshold = 600;
+/// Maximum absolute acceleration in X to trigger a twist (high X means the user's arm is probably hanging down)
+int twistMaxX = 2000;
 /// Maximum acceleration in Y to trigger a twist (low Y means watch is facing the right way up)
 int twistMaxY = -800;
 /// How little time (in ms) must a twist take from low->high acceleration?
@@ -913,7 +915,7 @@ void peripheralPollHandler() {
     newz = -newz; 
 #endif
 #ifdef ACCEL_DEVICE_KX126
-    newx = -newx;
+    newy = -newy;
 #endif
     int dx = newx-acc.x;
     int dy = newy-acc.y;
@@ -995,7 +997,7 @@ void peripheralPollHandler() {
       tdy = -tdy;
     }
     if (tdy>tthresh) twistTimer=0;
-    if (tdy<-tthresh && twistTimer<twistTimeout && acc.y<twistMaxY) {
+    if (tdy<-tthresh && twistTimer<twistTimeout && abs(acc.x)<twistMaxX && acc.y<twistMaxY) {
       twistTimer = TIMER_MAX; // ensure we don't trigger again until tdy>tthresh
       bangleTasks |= JSBT_TWIST_EVENT;
       jshHadEvent();
@@ -1721,7 +1723,8 @@ Set internal options used for gestures, etc...
 * `wakeOnFaceUp` should the LCD turn on when the watch is turned face up? default = `false`
 * `wakeOnTouch` should the LCD turn on when the touchscreen is pressed? default = `false`
 * `wakeOnTwist` should the LCD turn on when the watch is twisted? default = `true`
-* `twistThreshold`  How much acceleration to register a twist of the watch strap? Can be negative for oppsite direction. default = `800`
+* `twistThreshold`  How much acceleration to register a twist of the watch strap? Can be negative for oppsite direction. default = `600`
+* `twistMaxX` Maximum absolute acceleration in X to trigger a twist (high X means the user's arm is probably hanging down). default = `2000`
 * `twistMaxY` Maximum acceleration in Y to trigger a twist (low Y means watch is facing the right way up). default = `-800`
 * `twistTimeout`  How little time (in ms) must a twist take from low->high acceleration? default = `1000`
 * `gestureStartThresh` how big a difference before we consider a gesture started? default = `sqr(800)`
@@ -1753,6 +1756,7 @@ void jswrap_banglejs_setOptions(JsVar *options) {
       {"stepCounterThresholdHigh", JSV_INTEGER, &stepCounterThresholdHigh},
       {"twistThreshold", JSV_INTEGER, &twistThreshold},
       {"twistTimeout", JSV_INTEGER, &twistTimeout},
+      {"twistMaxX", JSV_INTEGER, &twistMaxX},
       {"twistMaxY", JSV_INTEGER, &twistMaxY},
       {"wakeOnBTN1", JSV_BOOLEAN, &wakeOnBTN1},
       {"wakeOnBTN2", JSV_BOOLEAN, &wakeOnBTN2},
@@ -2741,14 +2745,14 @@ NRF.on('connect',()=>{
   NRF.setRSSIHandler(rssi=>{
     if(!r) r=rssi;
     else r=r*0.95+rssi*0.05;
-    g.setColor(0).clearRect(40,80,199,100);
+    g.clearRect(40,80,199,100);
     g.drawString('Connected - RSSI: '+Math.round(r),120,80);
     g.fillRect(50,92,Math.max(40,Math.min(190,240+r*2)),95);
   });
 });
 NRF.on('disconnect',()=>{
   r=0;
-  g.setColor(0).clearRect(40,80,199,100);
+  g.clearRect(40,80,199,100);
   g.drawString('Not connected',120,80);
 });
 function draw(){
@@ -2757,6 +2761,7 @@ function draw(){
   c(BTN2.read());g.fillRect(200,120,239,239);
   c(BTN3.read());g.fillRect(0,120,39,239);
   c(BTN4.read());g.fillRect(0,0,39,120);
+  g.setColor(0);
   if (BTN1.read()&&BTN2.read()){
     clearWatch();
     g.setBgColor('#202020').clear();
@@ -2767,9 +2772,17 @@ function draw(){
 Bangle.buzz();
 draw();
 
+g.drawString('Accel',120,105);
+Bangle.on('twist',()=>{
+  g.setColor('#00FFA0').fillRect(40,103,199,114);
+  g.setColor(0).drawString('MOVEMENT WAKEUP',120,105);
+  setTimeout(()=>{
+    g.clearRect(40,103,199,114);
+    g.drawString('Accel',120,105);
+  },1000);
+});
 Bangle.on('accel',a=>{
-  g.setColor(0).clearRect(40,105,199,125);
-  g.drawString('Accel',120,105);
+  g.clearRect(40,115,199,125);
   g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)],120,115);
 });
 let m={};
@@ -2778,14 +2791,14 @@ Bangle.on('mag',a=>{
   y=a.y.toFixed(0);
   z=a.z.toFixed(0);
   if (!m.x) {m.x=x; m.y=y; m.z=z;}
-  g.setColor(0).clearRect(40,130,199,160);
+  g.clearRect(40,130,199,160);
   g.drawString('Mag',120,130);
   g.drawString([x,y,z],120,140);
   g.drawString([x-m.x,y-m.y,z-m.z],120,150);
 });
 Bangle.setCompassPower(1);
 Bangle.on('pressure',a=>{
-  g.setColor(0).clearRect(40,165,199,210);
+  g.clearRect(40,165,199,210);
   g.drawString('Temperature: '+a.temperature.toFixed(2),120,165);
   g.drawString('Pressure: '+a.pressure.toFixed(2),120,175);
   let v=0, vRef=0, avg=5;
@@ -2799,7 +2812,7 @@ Bangle.on('pressure',a=>{
 });
 Bangle.setBarometerPower(1);
 */
-    jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(0);\ng.reset().setBgColor(-1).clear();\ng.setColor(0).setFont('6x8').setFontAlign(0,-1);\ng.drawString('Firmware version',120,30);\ng.drawString(process.env.VERSION,120,40);\ng.drawString('Bluetooth address',120,60);\ng.drawString(NRF.getAddress(),120,70);\ng.drawString('Not connected',120,80);\nlet r;\nNRF.on('connect',()=>{\n  NRF.setRSSIHandler(rssi=>{\n    if(!r) r=rssi;\n    else r=r*0.95+rssi*0.05;\n    g.setColor(0).clearRect(40,80,199,100);\n    g.drawString('Connected - RSSI: '+Math.round(r),120,80);\n    g.fillRect(50,92,Math.max(40,Math.min(190,240+r*2)),95);\n  });\n});\nNRF.on('disconnect',()=>{\n  r=0;\n  g.setColor(0).clearRect(40,80,199,100);\n  g.drawString('Not connected',120,80);\n});\nfunction draw(){\n  c = c=>g.setColor(c?'#ff0000':-1);\n  c(BTN1.read());g.fillRect(200,0,239,120);\n  c(BTN2.read());g.fillRect(200,120,239,239);\n  c(BTN3.read());g.fillRect(0,120,39,239);\n  c(BTN4.read());g.fillRect(0,0,39,120);\n  if (BTN1.read()&&BTN2.read()){\n    clearWatch();\n    g.setBgColor('#202020').clear();\n    setWatch(Bangle.off,BTN1,{edge:-1});\n  }\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));\nBangle.buzz();\ndraw();\n\nBangle.on('accel',a=>{\n  g.setColor(0).clearRect(40,105,199,125);\n  g.drawString('Accel',120,105);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)],120,115);\n});\nlet m={};\nBangle.on('mag',a=>{\n  x=a.x.toFixed(0);\n  y=a.y.toFixed(0);\n  z=a.z.toFixed(0);\n  if (!m.x) {m.x=x; m.y=y; m.z=z;}\n  g.setColor(0).clearRect(40,130,199,160);\n  g.drawString('Mag',120,130);\n  g.drawString([x,y,z],120,140);\n  g.drawString([x-m.x,y-m.y,z-m.z],120,150);\n});\nBangle.setCompassPower(1);\nBangle.on('pressure',a=>{\n  g.setColor(0).clearRect(40,165,199,210);\n  g.drawString('Temperature: '+a.temperature.toFixed(2),120,165);\n  g.drawString('Pressure: '+a.pressure.toFixed(2),120,175);\n  let v=0, vRef=0, avg=5;\n  for (let i=0; i<avg; i++){\n    v+=analogRead(D4)/avg;\n    vRef+=E.getAnalogVRef()/avg;\n  }\n  v*=2*vRef;\n  g.drawString(`Battery: ${v.toFixed(2)} V`,120,190);\n  g.drawString(`Charging: ${Bangle.isCharging()?'YES':'NO'}`,120,200);\n});\nBangle.setBarometerPower(1);", true));
+    jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(0);\ng.reset().setBgColor(-1).clear();\ng.setColor(0).setFont('6x8').setFontAlign(0,-1);\ng.drawString('Firmware version',120,30);\ng.drawString(process.env.VERSION,120,40);\ng.drawString('Bluetooth address',120,60);\ng.drawString(NRF.getAddress(),120,70);\ng.drawString('Not connected',120,80);\nlet r;\nNRF.on('connect',()=>{\n  NRF.setRSSIHandler(rssi=>{\n    if(!r) r=rssi;\n    else r=r*0.95+rssi*0.05;\n    g.clearRect(40,80,199,100);\n    g.drawString('Connected - RSSI: '+Math.round(r),120,80);\n    g.fillRect(50,92,Math.max(40,Math.min(190,240+r*2)),95);\n  });\n});\nNRF.on('disconnect',()=>{\n  r=0;\n  g.clearRect(40,80,199,100);\n  g.drawString('Not connected',120,80);\n});\nfunction draw(){\n  c = c=>g.setColor(c?'#ff0000':-1);\n  c(BTN1.read());g.fillRect(200,0,239,120);\n  c(BTN2.read());g.fillRect(200,120,239,239);\n  c(BTN3.read());g.fillRect(0,120,39,239);\n  c(BTN4.read());g.fillRect(0,0,39,120);\n  g.setColor(0);\n  if (BTN1.read()&&BTN2.read()){\n    clearWatch();\n    g.setBgColor('#202020').clear();\n    setWatch(Bangle.off,BTN1,{edge:-1});\n  }\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));\nBangle.buzz();\ndraw();\n\ng.drawString('Accel',120,105);\nBangle.on('twist',()=>{\n  g.setColor('#00FFA0').fillRect(40,103,199,114);\n  g.setColor(0).drawString('MOVEMENT WAKEUP',120,105);\n  setTimeout(()=>{\n    g.clearRect(40,103,199,114);\n    g.drawString('Accel',120,105);\n  },1000);\n});\nBangle.on('accel',a=>{\n  g.clearRect(40,115,199,125);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)],120,115);\n});\nlet m={};\nBangle.on('mag',a=>{\n  x=a.x.toFixed(0);\n  y=a.y.toFixed(0);\n  z=a.z.toFixed(0);\n  if (!m.x) {m.x=x; m.y=y; m.z=z;}\n  g.clearRect(40,130,199,160);\n  g.drawString('Mag',120,130);\n  g.drawString([x,y,z],120,140);\n  g.drawString([x-m.x,y-m.y,z-m.z],120,150);\n});\nBangle.setCompassPower(1);\nBangle.on('pressure',a=>{\n  g.clearRect(40,165,199,210);\n  g.drawString('Temperature: '+a.temperature.toFixed(2),120,165);\n  g.drawString('Pressure: '+a.pressure.toFixed(2),120,175);\n  let v=0, vRef=0, avg=5;\n  for (let i=0; i<avg; i++){\n    v+=analogRead(D4)/avg;\n    vRef+=E.getAnalogVRef()/avg;\n  }\n  v*=2*vRef;\n  g.drawString(`Battery: ${v.toFixed(2)} V`,120,190);\n  g.drawString(`Charging: ${Bangle.isCharging()?'YES':'NO'}`,120,200);\n});\nBangle.setBarometerPower(1);", true));
   }
 #endif
   //jsiConsolePrintf("bangleFlags2 %d\n",bangleFlags);
