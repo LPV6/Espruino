@@ -2378,11 +2378,12 @@ NO_INLINE void jswrap_banglejs_init() {
   }
 
   //jsiConsolePrintf("bangleFlags %d\n",bangleFlags);
-  if (firstRun)
+  if (firstRun) {
     bangleFlags = JSBF_DEFAULT; // includes bangleFlags
+    lcdBrightness = 255; // RB: Allow for an app to start with low (or zero) brightness if the previously-running app set it that way.
+  }
   flipTimer = 0; // reset the LCD timeout timer
   lcdPowerOn = true;
-  lcdBrightness = 255;
 #ifdef ESPR_BACKLIGHT_FADE
   realLcdBrightness = firstRun ? 0 : lcdBrightness;
   lcdFadeHandlerActive = false;
