@@ -961,8 +961,8 @@ void peripheralPollHandler() {
       bangleTasks |= JSBT_ACCEL_DATA;
       jshHadEvent();
     }
-    // check for 'face up'
-    faceUp = (acc.z<-6700) && (acc.z>-9000) && abs(acc.x)<2048 && abs(acc.y)<2048;
+    // check for 'face up' (or tilted towards the viewer, which reduces the Y value)
+    faceUp = (acc.z<-5700) && (acc.z>-9000) && abs(acc.x)<2048 && abs(acc.y+4096)<2048;
     if (faceUp!=wasFaceUp) {
       faceUpTimer = 0;
       faceUpSent = false;
@@ -1002,9 +1002,10 @@ void peripheralPollHandler() {
       bangleTasks |= JSBT_TWIST_EVENT;
       jshHadEvent();
       if (bangleFlags&JSBF_WAKEON_TWIST) {
-        flipTimer = 0;
-        if (!lcdPowerOn)
+        if (!lcdPowerOn) {
+          flipTimer = 0;  // Only reset flipTimer if the LCD is off, otherwise false triggers can keep the display on more than necessary
           bangleTasks |= JSBT_LCD_ON;
+        }
       }
     }
 
@@ -2385,7 +2386,8 @@ NO_INLINE void jswrap_banglejs_init() {
 #ifdef ESPR_BACKLIGHT_FADE
   realLcdBrightness = firstRun ? 0 : lcdBrightness;
   lcdFadeHandlerActive = false;
-  jswrap_banglejs_setLCDPowerBacklight(lcdPowerOn);
+  // jswrap_banglejs_setLCDPowerBacklight(lcdPowerOn);
+  jswrap_banglejs_setLCDPower(lcdPowerOn); // RB: Not sure if this is the right way to avoid the LCD getting stuck "off" when reset() or load() sent
 #endif
   lcdPowerTimeout = DEFAULT_LCD_POWER_TIMEOUT;
   lcdWakeButton = 0;
@@ -3881,6 +3883,7 @@ void jswrap_banglejs_softOff() {
   // Wait if BTN1 is pressed until it is released
   while (jshPinGetValue(BTN1_PININDEX));
   jswrap_ble_sleep();
+  // jstReset();  Not sure if this helps...?
   jswrap_banglejs_periph_off();
   jshDelayMicroseconds(100000); // wait 100ms for any button bounce to disappear
   // Use jshSetEventCallback to set jshHadEvent as the button handler
