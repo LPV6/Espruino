@@ -382,7 +382,7 @@ JshI2CInfo i2cInternal;
 #define BTN_LOAD_TIMEOUT 4000 // in msec - how long does the button have to be pressed for before we restart
 #define TIMER_MAX 60000 // 60 sec - enough to fit in uint16_t without overflow if we add ACCEL_POLL_INTERVAL
 #ifndef DEFAULT_LCD_POWER_TIMEOUT
-#define DEFAULT_LCD_POWER_TIMEOUT 30000 // in msec - default for lcdPowerTimeout
+#define DEFAULT_LCD_POWER_TIMEOUT 20000 // in msec - default for lcdPowerTimeout
 #endif
 
 #ifdef PRESSURE_I2C
@@ -1422,11 +1422,12 @@ When brightness using `Bange.setLCDBrightness`.
 */
 void jswrap_banglejs_setLCDPower(bool isOn) {
 #ifdef ESPR_BACKLIGHT_FADE
-  if (isOn) jswrap_banglejs_setLCDPowerController(isOn);
+  if (isOn) jswrap_banglejs_setLCDPowerController(1);
+  else jswrap_banglejs_setLCDPowerBacklight(0); // RB: don't turn on the backlight here if fading is enabled
 #else
   jswrap_banglejs_setLCDPowerController(isOn);
-#endif
   jswrap_banglejs_setLCDPowerBacklight(isOn);
+#endif
   if (lcdPowerOn != isOn) {
     JsVar *bangle =jsvObjectGetChild(execInfo.root, "Bangle", 0);
     if (bangle) {
@@ -2381,15 +2382,15 @@ NO_INLINE void jswrap_banglejs_init() {
   if (firstRun) {
     bangleFlags = JSBF_DEFAULT; // includes bangleFlags
     lcdBrightness = 255; // RB: Allow for an app to start with low (or zero) brightness if the previously-running app set it that way.
+    jswrap_banglejs_setLCDPowerBacklight(1);
   }
   flipTimer = 0; // reset the LCD timeout timer
   lcdPowerOn = true;
 #ifdef ESPR_BACKLIGHT_FADE
   realLcdBrightness = firstRun ? 0 : lcdBrightness;
   lcdFadeHandlerActive = false;
-  // jswrap_banglejs_setLCDPowerBacklight(lcdPowerOn);
-  jswrap_banglejs_setLCDPower(lcdPowerOn); // RB: Not sure if this is the right way to avoid the LCD getting stuck "off" when reset() or load() sent
 #endif
+  jswrap_banglejs_setLCDPower(lcdPowerOn); // RB: Not sure if this is the right way to avoid the LCD getting stuck "off" when reset() or load() sent
   lcdPowerTimeout = DEFAULT_LCD_POWER_TIMEOUT;
   lcdWakeButton = 0;
 #ifdef LCD_WIDTH
@@ -3123,6 +3124,7 @@ bool jswrap_banglejs_idle() {
       if (faceUp && lcdPowerTimeout && !lcdPowerOn && (bangleFlags&JSBF_WAKEON_FACEUP)) {
         // LCD was turned off, turn it back on
         jswrap_banglejs_setLCDPower(1);
+        jswrap_banglejs_setLCDPowerBacklight(1);
         flipTimer = 0;
       }
     }
