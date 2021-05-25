@@ -2757,8 +2757,20 @@ Bangle.setLCDPower(1);
 Bangle.setLCDTimeout(0);
 g.reset().setBgColor(-1).clear();
 g.setColor(0).setFont('6x8').setFontAlign(0,-1);
-g.drawString('Firmware version',120,30);
-g.drawString(process.env.VERSION,120,40);
+g.drawString('--- DICKENS ---',120,20);
+g.drawString('Firmware: '+process.env.VERSION,120,30);
+var f=require("Flash");
+try {
+  f.erasePage(0x607f0000);
+  if (f.read(4,0x607f0000)!="255,255,255,255") throw "Flash erase failed!";
+  f.write([1,2,3,4],0x607f0000);
+  if (f.read(4,0x607f0000)!="1,2,3,4") throw "Flash write failed!";
+  f.erasePage(0x607f0000);
+  g.drawString("Flash test OK",120,40);
+} catch (e) {
+  g.setColor('#FF8080').fillRect(40,38,199,49);
+  g.setColor(0).drawString(e,120,40);
+}
 g.drawString('Bluetooth address',120,60);
 g.drawString(NRF.getAddress(),120,70);
 g.drawString('Not connected',120,80);
