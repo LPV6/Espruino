@@ -112,7 +112,11 @@ void ble_ancs_handle_event(BLEPending blep, ble_ancs_c_evt_notif_t *p_notif) {
 }
 
 void ble_ancs_clear_attr() {
-  memset(m_attr_appid        ,0, sizeof(m_attr_appid));
+// RB: For now, don't clear the appid as it this doesn't seem to always
+//     get set reliably (e.g. when receiving a "missed call" notification
+//     immediately after an "incoming call" notification is removed), but 
+//     we should probably figure out why that happens...
+//  memset(m_attr_appid        ,0, sizeof(m_attr_appid));  
   memset(m_attr_title        ,0, sizeof(m_attr_title));
   memset(m_attr_subtitle     ,0, sizeof(m_attr_subtitle));
   memset(m_attr_message      ,0, sizeof(m_attr_message));
