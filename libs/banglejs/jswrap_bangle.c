@@ -2193,12 +2193,27 @@ int jswrap_banglejs_isBarometerOn() {
     "return" : ["int","The number of steps recorded by the step counter"],
     "ifdef" : "BANGLEJS"
 }
-Returns the current amount of steps recorded by the step counter
+Returns the current number of steps recorded by the step counter
 */
 int jswrap_banglejs_getStepCount() {
   return stepCounter;
 }
 
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "Bangle",
+    "name" : "setStepCount",
+    "generate" : "jswrap_banglejs_setStepCount",
+    "params" : [
+      ["count","int","The value with which to reload the step counter"]
+    ],
+    "ifdef" : "BANGLEJS"
+}
+Sets the current value of the step counter
+*/
+void jswrap_banglejs_setStepCount(JsVarInt count) {
+  stepCounter = count;
+}
 
 /*JSON{
     "type" : "staticmethod",
