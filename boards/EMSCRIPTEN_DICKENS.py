@@ -42,6 +42,7 @@ info = {
      'INCLUDE += -I$(ROOT)/libs/banglejs -I$(ROOT)/libs/misc',
      'WRAPPERSOURCES += libs/banglejs/jswrap_bangle.c',
      'WRAPPERSOURCES += libs/graphics/jswrap_font_architekt10.c',
+     'WRAPPERSOURCES += libs/graphics/jswrap_font_architekt12.c',
      'WRAPPERSOURCES += libs/graphics/jswrap_font_architekt15.c',
      'WRAPPERSOURCES += libs/graphics/jswrap_font_architekt35.c',
      'WRAPPERSOURCES += libs/graphics/jswrap_font_grotesk14.c',
