@@ -47,6 +47,7 @@ info = {
      'WRAPPERSOURCES += libs/graphics/jswrap_font_architekt35.c',
      'WRAPPERSOURCES += libs/graphics/jswrap_font_grotesk14.c',
      'WRAPPERSOURCES += libs/graphics/jswrap_font_grotesk16.c',
+     'WRAPPERSOURCES += libs/graphics/jswrap_font_grotesk20.c',
      'SOURCES += libs/misc/nmea.c',
      'JSMODULESOURCES += libs/js/banglejs/locale.min.js'
    ]
