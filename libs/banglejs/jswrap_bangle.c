@@ -518,7 +518,7 @@ int twistThreshold = 600;
 /// Maximum absolute acceleration in X to trigger a twist (high X means the user's arm is probably hanging down)
 int twistMaxX = 4800;
 /// Maximum acceleration in Y to trigger a twist (low Y means watch is facing the right way up)
-int twistMaxY = -800;
+int twistMaxY = 0;
 /// How little time (in ms) must a twist take from low->high acceleration?
 int twistTimeout = 1000;
 
