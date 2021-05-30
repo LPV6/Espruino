@@ -313,6 +313,18 @@ int main(void)
     hardware_init();
     
     // Did we just power on? If not (we watchdog/softreset) RESETREAS will be nonzero
+    
+    /* NRF_POWER->RESETREAS reset reason flags:
+     * 0x0001 : RESETPIN  Reset pin
+     * 0x0002 : DOG       Watchdog
+     * 0x0004 : SREQ      Software reset
+     * 0x0008 : LOCKUP    CPU lock-up
+     * 0x0100 : OFF       Woke up from system OFF via GPIO DETECT
+     * 0x0200 : LPCOMP    Woke up from system OFF via LPCOMP ANADETECT
+     * 0x0400 : DIF       Woke up from system OFF into debug inteface mode
+     * 0x0800 : NFC       Woke up from system OFF by NFC field detector
+     * 0x1000 : VBUS      Woke up from system OFF by VBUS rising into valid range
+     */
     int r = NRF_POWER->RESETREAS;
     dfuIsColdBoot = (r&0xF)==0;
 #ifdef DICKENS // Specific Dickens bootloader tweaks...
@@ -323,15 +335,20 @@ int main(void)
       if (r==0) { // Bangle.softOff causes 'SW RESET' after 1 sec, so r==4
         nrf_delay_ms(1000);
       }
-      if (!get_btn1_state()) {
+      // if (!get_btn1_state()) {
+      if (!get_btn1_state() && r==0) { // Don't turn off after a SW reset, to avoid user input needed during reflashing
         turn_off();
       } else {
         if (!get_btn2_state()) {
+          // Clear reset reason flags
+          NRF_POWER->RESETREAS = 0xFFFFFFFF;
 #ifdef ESPR_BOOTLOADER_SPIFLASH
           lcd_init();
           lcd_println("DFU " JS_VERSION "\n");
+          // Check if we should reflash new firmware
           flashCheckAndRun();
 #endif
+          // Run the main application.
           nrf_bootloader_app_start();
         } else {
         }
