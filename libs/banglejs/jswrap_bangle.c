@@ -810,7 +810,7 @@ void peripheralPollHandler() {
     bool newReading = false;
 #ifdef MAG_DEVICE_GMC303
     buf[0]=0x10;
-    jsi2cWrite(MAG_I2C, MAG_ADDR, 1, buf, true);
+    jsi2cWrite(MAG_I2C, MAG_ADDR, 1, buf, false); // Don't send I2C STOP in the middle of write+read operation
     jsi2cRead(MAG_I2C, MAG_ADDR, 7, buf, true);
     if (buf[0]&1) { // then we have data
       mag.y = buf[1] | (buf[2]<<8);
@@ -2767,6 +2767,8 @@ NO_INLINE void jswrap_banglejs_init() {
 /*
 clearWatch();
 clearInterval();
+Bangle.setCompassPower(0);
+Bangle.setBarometerPower(0);
 Bangle.setLCDBrightness(1);
 Bangle.setLCDPower(1);
 Bangle.setLCDTimeout(0);
@@ -2853,7 +2855,6 @@ Bangle.on('mag',a=>{
   g.drawString([x,y,z],120,140);
   g.drawString([x-m.x,y-m.y,z-m.z],120,150);
 });
-Bangle.setCompassPower(1);
 Bangle.on('pressure',a=>{
   g.clearRect(40,165,199,210);
   g.drawString('Temperature: '+a.temperature.toFixed(2),120,165);
@@ -2867,9 +2868,10 @@ Bangle.on('pressure',a=>{
   g.drawString(`Battery: ${v.toFixed(2)} V`,120,190);
   g.drawString(`Charging: ${Bangle.isCharging()?'YES':'NO'}`,120,200);
 });
+Bangle.setCompassPower(1);
 Bangle.setBarometerPower(1);
 */
-    jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(0);\ng.reset().setBgColor(-1).clear();\ng.setColor(0).setFont('6x8').setFontAlign(0,-1);\ng.drawString('--- DICKENS ---',120,20);\ng.drawString('Firmware: '+process.env.VERSION,120,30);\nvar f=require('Flash');\ntry {\n  f.erasePage(0x607f0000);\n  if (f.read(4,0x607f0000)!='255,255,255,255') throw 'Flash erase failed!';\n  f.write([1,2,3,4],0x607f0000);\n  if (f.read(4,0x607f0000)!='1,2,3,4') throw 'Flash write failed!';\n  f.erasePage(0x607f0000);\n  g.drawString('Flash test OK',120,40);\n} catch (e) {\n  g.setColor('#FF8080').fillRect(40,38,199,49);\n  g.setColor(0).drawString(e,120,40);\n}\ng.drawString('Bluetooth address',120,60);\ng.drawString(NRF.getAddress(),120,70);\ng.drawString('Not connected',120,80);\ng.drawString('Accelerometer',120,105);\ng.drawString('Magnetometer',120,130);\ng.drawString('Barometer',120,165);\ng.setColor('#FF8080').fillRect(40,115,199,125);\ng.fillRect(40,140,199,150);\ng.fillRect(40,175,199,185);\ng.setColor(0).drawString('NO DATA',120,116);\ng.drawString('NO DATA',120,141);\ng.drawString('NO DATA',120,176);\n\nlet r;\nNRF.on('connect',()=>{\n  NRF.setRSSIHandler(rssi=>{\n    if(!r) r=rssi;\n    else r=r*0.95+rssi*0.05;\n    g.clearRect(40,80,199,100);\n    g.drawString('Connected - RSSI: '+Math.round(r),120,80);\n    g.fillRect(50,92,Math.max(40,Math.min(190,240+r*2)),95);\n  });\n});\nNRF.on('disconnect',()=>{\n  r=0;\n  g.clearRect(40,80,199,100);\n  g.drawString('Not connected',120,80);\n});\nfunction draw(){\n  c = c=>g.setColor(c?'#ff0000':-1);\n  c(BTN1.read());g.fillRect(200,0,239,120);\n  c(BTN2.read());g.fillRect(200,120,239,239);\n  c(BTN3.read());g.fillRect(0,120,39,239);\n  c(BTN4.read());g.fillRect(0,0,39,120);\n  g.setColor(0);\n  if (BTN1.read()&&BTN2.read()){\n    clearWatch();\n    g.setBgColor('#202020').clear();\n    setWatch(Bangle.off,BTN1,{edge:-1});\n  }\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));\nBangle.buzz();\ndraw();\n\nBangle.on('twist',()=>{\n  g.setColor('#00FFA0').fillRect(40,103,199,114);\n  g.setColor(0).drawString('MOVEMENT WAKEUP',120,105);\n  setTimeout(()=>{\n    g.clearRect(40,103,199,114);\n    g.drawString('Accelerometer',120,105);\n  },1000);\n});\nBangle.on('accel',a=>{\n  g.clearRect(40,115,199,125);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)],120,115);\n});\nlet m={};\nBangle.on('mag',a=>{\n  x=a.x.toFixed(0);\n  y=a.y.toFixed(0);\n  z=a.z.toFixed(0);\n  if (!m.x) {m.x=x; m.y=y; m.z=z;}\n  g.clearRect(40,140,199,160);\n  g.drawString([x,y,z],120,140);\n  g.drawString([x-m.x,y-m.y,z-m.z],120,150);\n});\nBangle.setCompassPower(1);\nBangle.on('pressure',a=>{\n  g.clearRect(40,165,199,210);\n  g.drawString('Temperature: '+a.temperature.toFixed(2),120,165);\n  g.drawString('Pressure: '+a.pressure.toFixed(2),120,175);\n  let v=0, vRef=0, avg=5;\n  for (let i=0; i<avg; i++){\n    v+=analogRead(D4)/avg;\n    vRef+=E.getAnalogVRef()/avg;\n  }\n  v*=2*vRef;\n  g.drawString(`Battery: ${v.toFixed(2)} V`,120,190);\n  g.drawString(`Charging: ${Bangle.isCharging()?'YES':'NO'}`,120,200);\n});\nBangle.setBarometerPower(1);", true));
+    jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setCompassPower(0);\nBangle.setBarometerPower(0);\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(0);\ng.reset().setBgColor(-1).clear();\ng.setColor(0).setFont('6x8').setFontAlign(0,-1);\ng.drawString('--- DICKENS ---',120,20);\ng.drawString('Firmware: '+process.env.VERSION,120,30);\nvar f=require('Flash');\ntry {\n  f.erasePage(0x607f0000);\n  if (f.read(4,0x607f0000)!='255,255,255,255') throw 'Flash erase failed!';\n  f.write([1,2,3,4],0x607f0000);\n  if (f.read(4,0x607f0000)!='1,2,3,4') throw 'Flash write failed!';\n  f.erasePage(0x607f0000);\n  g.drawString('Flash test OK',120,40);\n} catch (e) {\n  g.setColor('#FF8080').fillRect(40,38,199,49);\n  g.setColor(0).drawString(e,120,40);\n}\ng.drawString('Bluetooth address',120,60);\ng.drawString(NRF.getAddress(),120,70);\ng.drawString('Not connected',120,80);\ng.drawString('Accelerometer',120,105);\ng.drawString('Magnetometer',120,130);\ng.drawString('Barometer',120,165);\ng.setColor('#FF8080').fillRect(40,115,199,125);\ng.fillRect(40,140,199,150);\ng.fillRect(40,175,199,185);\ng.setColor(0).drawString('NO DATA',120,116);\ng.drawString('NO DATA',120,141);\ng.drawString('NO DATA',120,176);\n\nlet r;\nNRF.on('connect',()=>{\n  NRF.setRSSIHandler(rssi=>{\n    if(!r) r=rssi;\n    else r=r*0.95+rssi*0.05;\n    g.clearRect(40,80,199,100);\n    g.drawString('Connected - RSSI: '+Math.round(r),120,80);\n    g.fillRect(50,92,Math.max(40,Math.min(190,240+r*2)),95);\n  });\n});\nNRF.on('disconnect',()=>{\n  r=0;\n  g.clearRect(40,80,199,100);\n  g.drawString('Not connected',120,80);\n});\nfunction draw(){\n  c = c=>g.setColor(c?'#ff0000':-1);\n  c(BTN1.read());g.fillRect(200,0,239,120);\n  c(BTN2.read());g.fillRect(200,120,239,239);\n  c(BTN3.read());g.fillRect(0,120,39,239);\n  c(BTN4.read());g.fillRect(0,0,39,120);\n  g.setColor(0);\n  if (BTN1.read()&&BTN2.read()){\n    clearWatch();\n    g.setBgColor('#202020').clear();\n    setWatch(Bangle.off,BTN1,{edge:-1});\n  }\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));\nBangle.buzz();\ndraw();\n\nBangle.on('twist',()=>{\n  g.setColor('#00FFA0').fillRect(40,103,199,114);\n  g.setColor(0).drawString('MOVEMENT WAKEUP',120,105);\n  setTimeout(()=>{\n    g.clearRect(40,103,199,114);\n    g.drawString('Accelerometer',120,105);\n  },1000);\n});\nBangle.on('accel',a=>{\n  g.clearRect(40,115,199,125);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)],120,115);\n});\nlet m={};\nBangle.on('mag',a=>{\n  x=a.x.toFixed(0);\n  y=a.y.toFixed(0);\n  z=a.z.toFixed(0);\n  if (!m.x) {m.x=x; m.y=y; m.z=z;}\n  g.clearRect(40,140,199,160);\n  g.drawString([x,y,z],120,140);\n  g.drawString([x-m.x,y-m.y,z-m.z],120,150);\n});\nBangle.on('pressure',a=>{\n  g.clearRect(40,165,199,210);\n  g.drawString('Temperature: '+a.temperature.toFixed(2),120,165);\n  g.drawString('Pressure: '+a.pressure.toFixed(2),120,175);\n  let v=0, vRef=0, avg=5;\n  for (let i=0; i<avg; i++){\n    v+=analogRead(D4)/avg;\n    vRef+=E.getAnalogVRef()/avg;\n  }\n  v*=2*vRef;\n  g.drawString(`Battery: ${v.toFixed(2)} V`,120,190);\n  g.drawString(`Charging: ${Bangle.isCharging()?'YES':'NO'}`,120,200);\n});\nBangle.setCompassPower(1);\nBangle.setBarometerPower(1);", true));
   }
 #endif
   //jsiConsolePrintf("bangleFlags2 %d\n",bangleFlags);
@@ -3495,6 +3497,42 @@ void jswrap_banglejs_compassWr(JsVarInt reg, JsVarInt data) {
   i2cBusy = false;
 #endif
 }
+
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "Bangle",
+    "name" : "compassRd",
+    "generate" : "jswrap_banglejs_compassRd",
+    "params" : [
+      ["reg","int",""],
+      ["cnt","int","If specified, `compassRd` returns an array of the given length (max 128). If not (or 0) it returns a number"]
+    ],
+    "return" : ["JsVar",""],
+    "ifdef" : "BANGLEJS"
+}
+Reads a register on the Magnetometer/Compass
+*/
+JsVar *jswrap_banglejs_compassRd(JsVarInt reg, JsVarInt cnt) {
+#ifdef MAG_I2C
+  if (cnt<0) cnt=0;
+  unsigned char buf[128];
+  if (cnt>(int)sizeof(buf)) cnt=sizeof(buf);
+  buf[0] = (unsigned char)reg;
+  i2cBusy = true;
+  jsi2cWrite(MAG_I2C, MAG_ADDR, 1, buf, false);
+  jsi2cRead(MAG_I2C, MAG_ADDR, (cnt==0)?1:cnt, buf, true);
+  i2cBusy = false;
+  if (cnt) {
+    JsVar *ab = jsvNewArrayBufferWithData(cnt, buf);
+    JsVar *d = jswrap_typedarray_constructor(ARRAYBUFFERVIEW_UINT8, ab,0,0);
+    jsvUnLock(ab);
+    return d;
+  } else return jsvNewFromInteger(buf[0]);
+#else
+  return 0;
+#endif
+}
+
 
 /*JSON{
     "type" : "staticmethod",
