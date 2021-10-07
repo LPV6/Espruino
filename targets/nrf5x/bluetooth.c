@@ -810,6 +810,25 @@ void jsble_peripheral_activity() {
 #endif
 }
 
+/// Checks for error and reports an exception if there was one. Return true on error
+#ifndef SAVE_ON_FLASH_EXTREME
+bool jsble_check_error_line(uint32_t err_code, int lineNumber) {
+  JsVar *v = jsble_get_error_string(err_code);
+  if (!v) return 0;
+  jsExceptionHere(JSET_ERROR, "%v (:%d)", v, lineNumber);
+  jsvUnLock(v);
+  return true;
+}
+#else
+bool jsble_check_error(uint32_t err_code) {
+  JsVar *v = jsble_get_error_string(err_code);
+  if (!v) return 0;
+  jsExceptionHere(JSET_ERROR, "%v", v);
+  jsvUnLock(v);
+  return true;
+}
+#endif
+
 // -----------------------------------------------------------------------------------
 // --------------------------------------------------------------------------- ERRORS
 
@@ -872,20 +891,6 @@ static void service_error_handler(uint32_t nrf_error) {
   APP_ERROR_CHECK_NOT_URGENT(nrf_error);
 }
 #endif
-
-/// Checks for error and reports an exception if there was one. Return true on error
-bool jsble_check_error(uint32_t err_code) {
-  if (!err_code) return false; // no error!
-  if (!execInfo.root) {
-    // uh-oh... No interpreter. We need to hard error!
-    ble_app_error_handler(err_code,0,"jsble_check_error");
-  }
-  JsVar *v = jsble_get_error_string(err_code);
-  if (!v) return 0;
-  jsExceptionHere(JSET_ERROR, "%v", v);
-  jsvUnLock(v);
-  return true;
-}
 
 #if NRF_LOG_ENABLED
 void nrf_log_frontend_std_0(uint32_t severity_mid, char const * const p_str) {
@@ -1118,7 +1123,9 @@ static void ble_evt_handler(ble_evt_t * p_ble_evt) {
 static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context) {
 #endif
 
-  /*if (p_ble_evt->header.evt_id != 87) // ignore write complete
+  /*if (p_ble_evt->header.evt_id != 87 && // ignore write complete (SDK14+?)
+      p_ble_evt->header.evt_id != BLE_GATTS_EVT_WRITE && // Write operation performed (eg after we transmit on UART)
+      p_ble_evt->header.evt_id != BLE_EVT_TX_COMPLETE)
     jsiConsolePrintf("[%d %d]\n", p_ble_evt->header.evt_id, p_ble_evt->evt.gattc_evt.params.hvx.handle );*/
 #if ESPR_BLUETOOTH_ANCS
   if (bleStatus & BLE_ANCS_INITED)
@@ -3133,6 +3140,10 @@ void jsble_central_connect(ble_gap_addr_t peer_addr, JsVar *options) {
   }
 }
 
+void jsble_central_getPrimaryServices_retry(ble_uuid_t uuid) {
+  jsble_central_getPrimaryServices(bleUUIDFilter);
+}
+
 void jsble_central_getPrimaryServices(ble_uuid_t uuid) {
   if (!jsble_has_central_connection())
     return bleCompleteTaskFailAndUnLock(BLETASK_PRIMARYSERVICE, jsvNewFromString("Not connected"));
@@ -3141,10 +3152,16 @@ void jsble_central_getPrimaryServices(ble_uuid_t uuid) {
 
   uint32_t              err_code;
   err_code = sd_ble_gattc_primary_services_discover(m_central_conn_handle, 1 /* start handle */, NULL);
-  JsVar *errStr = jsble_get_error_string(err_code);
-  if (errStr) {
-    bleCompleteTaskFail(BLETASK_PRIMARYSERVICE, errStr);
-    jsvUnLock(errStr);
+  if (err_code == NRF_ERROR_BUSY) {
+    // we're busy, so reschedule this for 500ms later
+    // https://devzone.nordicsemi.com/f/nordic-q-a/76504/when-can-sd_ble_gattc_primary_services_discover-be-called-nrf_error_busy
+    jsvUnLock(jsiSetTimeout(jsble_central_getPrimaryServices_retry, 500));
+  } else {
+    JsVar *errStr = jsble_get_error_string(err_code);
+    if (errStr) {
+      bleCompleteTaskFail(BLETASK_PRIMARYSERVICE, errStr);
+      jsvUnLock(errStr);
+    }
   }
 }
 

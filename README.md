@@ -9,14 +9,14 @@ Espruino JavaScript for Microcontrollers
 </pre>
 http://www.espruino.com &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [![Join the chat at https://gitter.im/espruino/Espruino](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/espruino/Espruino?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-[![Build Status](https://travis-ci.org/espruino/Espruino.svg?branch=master)](https://travis-ci.org/espruino/Espruino)
+[![Build Status](https://travis-ci.com/espruino/Espruino.svg?branch=master)](https://travis-ci.com/espruino/Espruino)
 
 About
 -----
 
 Espruino is a JavaScript interpreter for microcontrollers. It is designed for devices with as little as 128kB Flash and 8kB RAM.
 
-Please support Espruino by [ordering one of our official boards](http://www.espruino.com/Order) or [donating](http://www.espruino.com/Download)
+Please support Espruino by [ordering one of our official boards](http://www.espruino.com/Order) or [donating](http://www.espruino.com/Donate)
 
 
 Documentation

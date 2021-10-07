@@ -15,7 +15,9 @@
 #ifndef BLUETOOTH_H
 #define BLUETOOTH_H
 
+#ifdef NRF5X
 #include "app_config.h"
+#endif
 #include "jsdevices.h"
 
 #ifdef NRF5X
@@ -167,7 +169,7 @@ extern volatile uint16_t                         m_central_conn_handle; /**< Han
 
 /** Initialise the BLE stack */
 void jsble_init();
-/** Completely deinitialise the BLE stack */
+/** Completely deinitialise the BLE stack. Return true on success */
 bool jsble_kill();
 /** Add a task to the queue to be executed (to be called mainly from IRQ-land) - with a buffer of data */
 void jsble_queue_pending_buf(BLEPending blep, uint16_t data, char *ptr, size_t len);
@@ -198,8 +200,14 @@ bool jsble_has_peripheral_connection();
  * a peripheral - used with Dynamic Interval Adjustment  */
 void jsble_peripheral_activity();
 
+#ifndef SAVE_ON_FLASH_EXTREME
+#define jsble_check_error(X) jsble_check_error_line(X, __LINE__)
+/// Checks for error and reports an exception if there was one. Return true on error
+bool jsble_check_error_line(uint32_t err_code, int lineNumber);
+#else
 /// Checks for error and reports an exception if there was one. Return true on error
 bool jsble_check_error(uint32_t err_code);
+#endif
 
 /** Set the connection interval of the peripheral connection. Returns an error code */
 uint32_t jsble_set_periph_connection_interval(JsVarFloat min, JsVarFloat max);

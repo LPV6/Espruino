@@ -1217,7 +1217,6 @@ NO_INLINE JsVar *jspeFactorObject() {
         jslGetNextToken(); // skip over current token
       } else if (
           lex->tk==LEX_STR ||
-          lex->tk==LEX_TEMPLATE_LITERAL ||
           lex->tk==LEX_FLOAT ||
           lex->tk==LEX_INT ||
           lex->tk==LEX_R_TRUE ||
@@ -2175,10 +2174,13 @@ NO_INLINE JsVar *jspeStatementIf() {
 
   JSP_SAVE_EXECUTE();
   if (!cond) jspSetNoExecute();
+  JsExecFlags hasError = 0;
   JsVar *a = jspeBlockOrStatement();
+  hasError |= execInfo.execute&EXEC_ERROR_MASK;
   if (!cond) {
     jsvUnLock(a);
     JSP_RESTORE_EXECUTE();
+    execInfo.execute |= hasError;
   } else {
     result = a;
   }
@@ -2187,9 +2189,11 @@ NO_INLINE JsVar *jspeStatementIf() {
     JSP_SAVE_EXECUTE();
     if (cond) jspSetNoExecute();
     JsVar *a = jspeBlockOrStatement();
+    hasError |= execInfo.execute&EXEC_ERROR_MASK;
     if (cond) {
       jsvUnLock(a);
       JSP_RESTORE_EXECUTE();
+      execInfo.execute |= hasError;
     } else {
       result = a;
     }

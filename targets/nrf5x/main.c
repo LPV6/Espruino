@@ -44,3 +44,9 @@ int main() {
   //jsvKill();
   //jshKill();
 }
+
+#ifdef LD_NOSTARTFILES
+void _start(){
+  main();
+}
+#endif

@@ -64,6 +64,21 @@ JsVar *blePromise = 0;
 JsVar *bleTaskInfo = 0;
 BleTask bleTask = BLETASK_NONE;
 
+/// Get the string value of the given task
+const char *bleGetTaskString(BleTask task) {
+#ifndef SAVE_ON_FLASH_EXTREME
+  const char *str = BLETASK_STRINGS; // 0 separated, with two 0s at the end
+  while (task) {
+    if (!str) return "?";
+    str += strlen(str)+1;
+    task--;
+  }
+  if (!str) return "?";
+  return str;
+#else
+  return "?";
+#endif
+}
 
 bool bleInTask(BleTask task) {
   return bleTask==task;
@@ -75,7 +90,7 @@ BleTask bleGetCurrentTask() {
 
 bool bleNewTask(BleTask task, JsVar *taskInfo) {
   if (bleTask) {
-    jsExceptionHere(JSET_ERROR, "BLE task %d is already in progress", (int)bleTask);
+    jsExceptionHere(JSET_ERROR, "BLE task %s is already in progress", bleGetTaskString(bleTask));
     return false;
   }
 /*  if (blePromise) {
@@ -96,7 +111,7 @@ bool bleNewTask(BleTask task, JsVar *taskInfo) {
 void bleCompleteTask(BleTask task, bool ok, JsVar *data) {
   //jsiConsolePrintf(ok?"RES %d %v\n":"REJ %d %q\n", task, data);
   if (task != bleTask) {
-    jsExceptionHere(JSET_INTERNALERROR, "BLE task completed that wasn't scheduled (%d/%d)", task, bleTask);
+    jsExceptionHere(JSET_INTERNALERROR, "BLE task completed that wasn't scheduled (%s/%s)", bleGetTaskString(task), bleGetTaskString(bleTask));
     return;
   }
   bleTask = BLETASK_NONE;
