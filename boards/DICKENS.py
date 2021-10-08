@@ -109,6 +109,7 @@ info = {
      'SOURCES += libs/misc/stepcount.c',
      'JSMODULESOURCES += libs/js/banglejs/locale.min.js',
      'DEFINES += -DBANGLEJS',
+     'DEFINES += -DESPR_NO_LOADING_SCREEN', # disable 'loading...' message when switching apps
 
      'NRF_SDK15=1'
    ]

@@ -2778,6 +2778,7 @@ NO_INLINE void jswrap_banglejs_init() {
   in a fraction of a second anyway */
   if (jsiStatus & JSIS_TODO_FLASH_LOAD) {
     showSplashScreen = false;
+#ifndef ESPR_NO_LOADING_SCREEN
     if (!firstRun) {
       // Display a loading screen
       int x = LCD_WIDTH/2;
@@ -2800,6 +2801,7 @@ NO_INLINE void jswrap_banglejs_init() {
       lcdFlip_SPILCD(&gfx);
   #endif
     }
+#endif
   }
 
 #ifdef DICKENS
