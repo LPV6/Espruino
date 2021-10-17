@@ -477,7 +477,11 @@ void jsiSoftInit(bool hasBeenReset) {
   if (fullTest)
     jsiConsolePrintf("Checking storage...\n");
 #endif
+#ifdef DICKENS
+  if (!jsfIsStorageValid(JSFSTT_QUICK)) {
+#else    
   if (!jsfIsStorageValid(JSFSTT_NORMAL)) {
+#endif    
     jsiConsolePrintf("Storage is corrupt.\n");
     jsfResetStorage();
   }
