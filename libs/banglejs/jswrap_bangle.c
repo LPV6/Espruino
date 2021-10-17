@@ -928,9 +928,19 @@ void peripheralPollHandler() {
     jsi2cWrite(MAG_I2C, MAG_ADDR, 1, buf, false);
     jsi2cRead(MAG_I2C, MAG_ADDR, 7, buf, true);
     if (buf[0]&1) { // then we have data
+#ifdef LCD_ROTATION
+  #if LCD_ROTATION == 180
+      mag.y = -(buf[1] | (buf[2]<<8));
+      mag.x = -(buf[3] | (buf[4]<<8));
+      mag.z = buf[5] | (buf[6]<<8);
+  #elif LCD_ROTATION == 0
       mag.y = buf[1] | (buf[2]<<8);
       mag.x = buf[3] | (buf[4]<<8);
       mag.z = buf[5] | (buf[6]<<8);
+  #else
+    #error "LCD rotation is only implemented for 180 and 0 degrees"
+  #endif
+#endif
       newReading = true;
     }
 #endif
@@ -1048,6 +1058,16 @@ void peripheralPollHandler() {
 #endif
 #ifdef ACCEL_DEVICE_KX126
     newy = -newy;
+#endif
+#ifdef LCD_ROTATION
+  #if LCD_ROTATION == 180
+    newy = -newy;
+    newx = -newx;
+  #elif LCD_ROTATION == 0
+    // Do nothing if display is not rotated
+  #else
+    #error "LCD rotation is only implemented for 180 and 0 degrees"
+  #endif
 #endif
     int dx = newx-acc.x;
     int dy = newy-acc.y;
@@ -1747,6 +1767,47 @@ void jswrap_banglejs_setLCDOffset(int y) {
   lcdST7789_setYOffset(y);
 #endif
 }
+
+#ifdef DICKENS
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "Bangle",
+    "name" : "setLCDRotation",
+    "generate" : "jswrap_banglejs_setLCDRotation",
+    "params" : [
+      ["d","int","The number of degrees to the LCD display (0, 90, 180 or 270)"]
+    ],
+    "ifdef" : "BANGLEJS"
+}
+Sets the rotation of the LCD display (relative to its nominal orientation)
+*/
+void jswrap_banglejs_setLCDRotation(int d) {
+#ifdef LCD_ROTATION
+  // If the LCD is already rotated in the board definition file, add this
+  d += LCD_ROTATION; 
+  if (d>=360) d-=360;
+#endif  
+  uint8_t regValue;
+  // Register values are OK for GC9A01 on Dickens, but will need to be different on other hardware.
+  switch (d) {
+    case 0:
+      regValue = 0x88;
+      break;
+    case 90:
+      regValue = 0x78;
+      break;
+    case 180:
+      regValue = 0x48;
+      break;
+    case 270:
+      regValue = 0xB8;
+      break;
+    default:
+      jsExceptionHere(JSET_ERROR, "setLCDRotation expects a rotation value of 0, 90, 180 or 270");
+  }
+  lcdCmd_SPILCD(0x36, 1, (const uint8_t *)&regValue);
+}
+#endif
 
 /*JSON{
     "type" : "staticmethod",
@@ -2837,6 +2898,7 @@ NO_INLINE void jswrap_banglejs_init() {
     jswrap_graphics_drawCString(&gfx,20,y+10,"---------------");
     jswrap_graphics_drawCString(&gfx,20,y+30,JS_VERSION);
     jswrap_graphics_drawCString(&gfx,20,y+40,addrStr);
+    jswrap_graphics_drawCString(&gfx,20,y+55,"Running boot checks...");
 #else
     int y=(LCD_HEIGHT-h)/2;
     jsvUnLock2(jswrap_graphics_drawImage(graphics,img,(LCD_WIDTH-w)/2,y,NULL),img);
@@ -3050,6 +3112,75 @@ NO_INLINE void jswrap_banglejs_init() {
   run the self test code */
   if (firstRun && jsfIsStorageEmpty()) {
 /*
+
+//-------------------------------------------
+// Bigger text, show buttons and connection status only
+//-------------------------------------------
+
+clearWatch();
+clearInterval();
+Bangle.setCompassPower(0);
+Bangle.setBarometerPower(0);
+Bangle.setLCDBrightness(1);
+Bangle.setLCDPower(1);
+Bangle.setLCDTimeout(30);
+let bgCol='#FFF';
+let addr=NRF.getAddress().toUpperCase();
+function getBattery(){
+  let v=0,vRef=0,avg=5;
+  for (let i=0; i<avg; i++){
+    v+=analogRead(D4)/avg;
+    vRef+=E.getAnalogVRef()/avg;
+  }
+  v*=2*vRef;
+  return `${v.toFixed(2)} V`;
+}
+function drawButtons(){
+  c=c=>g.setColor(c?'#ff0000':bgCol);
+  c(BTN1.read());g.fillRect(200,0,239,120);
+  c(BTN2.read());g.fillRect(200,120,239,239);
+  c(BTN3.read());g.fillRect(0,120,39,239);
+  c(BTN4.read());g.fillRect(0,0,39,120);
+  if (BTN1.read()&&BTN2.read()){
+    clearWatch();
+    g.setBgColor('#202020').clear();
+    setWatch(Bangle.off,BTN1,{edge:-1});
+  }
+  g.setFontArchitekt15();
+  g.clearRect(40,183,200,200);
+  g.setColor(Bangle.isCharging()?'#0C0':'#444');
+  g.drawString(getBattery(),120,190);
+}
+function drawAll(){
+  g.reset().setBgColor(bgCol).clear();
+  g.setColor(0).setFontAlign(0,0);
+  g.setFontArchitekt15();
+  g.drawString(process.env.VERSION.toUpperCase(),120,50);
+  g.drawString(addr,120,70);
+  g.drawString('PROJECT DICKENS',120,170);
+  g.setFontArchitekt35();
+  g.drawString(addr.slice(12,14)+addr.slice(15,17),120,116);
+  drawButtons();
+}
+[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(drawButtons,b,{repeat:1,edge:0}));
+NRF.on('connect',()=>{
+  bgCol='#06F';
+  drawAll();
+  Bangle.setLCDPower(1);
+  Bangle.setLCDBrightness(1);
+});
+NRF.on('disconnect',()=>{
+  bgCol='#FFF';
+  drawAll();
+});
+Bangle.on('charging',drawAll);
+drawAll();
+Bangle.buzz();
+
+//-------------------------------------------
+// Small text, show all sensors etc.
+//-------------------------------------------
+
 clearWatch();
 clearInterval();
 Bangle.setCompassPower(0);
@@ -3156,7 +3287,8 @@ Bangle.on('pressure',a=>{
 Bangle.setCompassPower(1);
 Bangle.setBarometerPower(1);
 */
-    jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setCompassPower(0);\nBangle.setBarometerPower(0);\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(0);\ng.reset().setBgColor(-1).clear();\ng.setColor(0).setFont('6x8').setFontAlign(0,-1);\ng.drawString('--- DICKENS ---',120,20);\ng.drawString('Firmware: '+process.env.VERSION,120,30);\nvar f=require('Flash');\ntry {\n  f.erasePage(0x607f0000);\n  if (f.read(4,0x607f0000)!='255,255,255,255') throw 'Flash erase failed!';\n  f.write([1,2,3,4],0x607f0000);\n  if (f.read(4,0x607f0000)!='1,2,3,4') throw 'Flash write failed!';\n  f.erasePage(0x607f0000);\n  g.drawString('Flash test OK',120,40);\n} catch (e) {\n  g.setColor('#FF8080').fillRect(40,38,199,49);\n  g.setColor(0).drawString(e,120,40);\n}\ng.drawString('Bluetooth address',120,60);\ng.drawString(NRF.getAddress(),120,70);\ng.drawString('Not connected',120,80);\ng.drawString('Accelerometer',120,105);\ng.drawString('Magnetometer',120,130);\ng.drawString('Barometer',120,165);\ng.setColor('#FF8080').fillRect(40,115,199,125);\ng.fillRect(40,140,199,150);\ng.fillRect(40,175,199,185);\ng.setColor(0).drawString('NO DATA',120,116);\ng.drawString('NO DATA',120,141);\ng.drawString('NO DATA',120,176);\n\nlet r;\nNRF.on('connect',()=>{\n  NRF.setRSSIHandler(rssi=>{\n    if(!r) r=rssi;\n    else r=r*0.95+rssi*0.05;\n    g.clearRect(40,80,199,100);\n    g.drawString('Connected - RSSI: '+Math.round(r),120,80);\n    g.fillRect(50,92,Math.max(40,Math.min(190,240+r*2)),95);\n  });\n});\nNRF.on('disconnect',()=>{\n  r=0;\n  g.clearRect(40,80,199,100);\n  g.drawString('Not connected',120,80);\n});\nfunction draw(){\n  c = c=>g.setColor(c?'#ff0000':-1);\n  c(BTN1.read());g.fillRect(200,0,239,120);\n  c(BTN2.read());g.fillRect(200,120,239,239);\n  c(BTN3.read());g.fillRect(0,120,39,239);\n  c(BTN4.read());g.fillRect(0,0,39,120);\n  g.setColor(0);\n  if (BTN1.read()&&BTN2.read()){\n    clearWatch();\n    g.setBgColor('#202020').clear();\n    setWatch(Bangle.off,BTN1,{edge:-1});\n  }\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));\nBangle.buzz();\ndraw();\n\nBangle.on('twist',()=>{\n  g.setColor('#00FFA0').fillRect(40,103,199,114);\n  g.setColor(0).drawString('MOVEMENT WAKEUP',120,105);\n  setTimeout(()=>{\n    g.clearRect(40,103,199,114);\n    g.drawString('Accelerometer',120,105);\n  },1000);\n});\nBangle.on('accel',a=>{\n  g.clearRect(40,115,199,125);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)],120,115);\n});\nlet m={};\nBangle.on('mag',a=>{\n  x=a.x.toFixed(0);\n  y=a.y.toFixed(0);\n  z=a.z.toFixed(0);\n  if (!m.x) {m.x=x; m.y=y; m.z=z;}\n  g.clearRect(40,140,199,160);\n  g.drawString([x,y,z],120,140);\n  g.drawString([x-m.x,y-m.y,z-m.z],120,150);\n});\nBangle.on('pressure',a=>{\n  g.clearRect(40,165,199,210);\n  g.drawString('Temperature: '+a.temperature.toFixed(2),120,165);\n  g.drawString('Pressure: '+a.pressure.toFixed(2),120,175);\n  let v=0, vRef=0, avg=5;\n  for (let i=0; i<avg; i++){\n    v+=analogRead(D4)/avg;\n    vRef+=E.getAnalogVRef()/avg;\n  }\n  v*=2*vRef;\n  g.drawString(`Battery: ${v.toFixed(2)} V`,120,190);\n  g.drawString(`Charging: ${Bangle.isCharging()?'YES':'NO'}`,120,200);\n});\nBangle.setCompassPower(1);\nBangle.setBarometerPower(1);", true));
+    jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setCompassPower(0);\nBangle.setBarometerPower(0);\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(30);\nlet bgCol='#FFF';\nlet addr=NRF.getAddress().toUpperCase();\nfunction drawButtons(){\nc=c=>g.setColor(c?'#ff0000':bgCol);\nc(BTN1.read());g.fillRect(200,0,239,120);\nc(BTN2.read());g.fillRect(200,120,239,239);\nc(BTN3.read());g.fillRect(0,120,39,239);\nc(BTN4.read());g.fillRect(0,0,39,120);\nif (BTN1.read()&&BTN2.read()){\nclearWatch();\ng.setBgColor('#202020').clear();\nsetWatch(Bangle.off,BTN1,{edge:-1});\n}\nlet v=0,vRef=0,avg=5;\nfor(let i=0;i<avg;i++){\nv+=analogRead(D4)/avg;\nvRef+=E.getAnalogVRef()/avg;\n}\nv*=2*vRef;\ng.setFontArchitekt15();\ng.clearRect(40,183,200,200);\ng.setColor(Bangle.isCharging()?'#0C0':'#444');\ng.drawString(`${v.toFixed(2)} V`,120,190);\n}\nfunction drawAll(){\ng.reset().setBgColor(bgCol).clear();\ng.setColor(0).setFontAlign(0,0);\ng.setFontArchitekt15();\ng.drawString(process.env.VERSION.toUpperCase(),120,50);\ng.drawString(addr,120,70);\ng.drawString('PROJECT DICKENS',120,170);\ng.setFontArchitekt35();\ng.drawString(addr.slice(12,14)+addr.slice(15,17),120,116);\ndrawButtons();\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(drawButtons,b,{repeat:1,edge:0}));\nNRF.on('connect',()=>{\nbgCol='#06F';\ndrawAll();\nBangle.setLCDPower(1);\nBangle.setLCDBrightness(1);\n});\nNRF.on('disconnect',()=>{\nbgCol='#FFF';\ndrawAll();\n});\nBangle.on('charging',drawAll);\ndrawAll();\nBangle.buzz();", true));
+//  jsvUnLock(jspEvaluate("clearWatch();\nclearInterval();\nBangle.setCompassPower(0);\nBangle.setBarometerPower(0);\nBangle.setLCDBrightness(1);\nBangle.setLCDPower(1);\nBangle.setLCDTimeout(0);\ng.reset().setBgColor(-1).clear();\ng.setColor(0).setFont('6x8').setFontAlign(0,-1);\ng.drawString('--- DICKENS ---',120,20);\ng.drawString('Firmware: '+process.env.VERSION,120,30);\nvar f=require('Flash');\ntry {\n  f.erasePage(0x607f0000);\n  if (f.read(4,0x607f0000)!='255,255,255,255') throw 'Flash erase failed!';\n  f.write([1,2,3,4],0x607f0000);\n  if (f.read(4,0x607f0000)!='1,2,3,4') throw 'Flash write failed!';\n  f.erasePage(0x607f0000);\n  g.drawString('Flash test OK',120,40);\n} catch (e) {\n  g.setColor('#FF8080').fillRect(40,38,199,49);\n  g.setColor(0).drawString(e,120,40);\n}\ng.drawString('Bluetooth address',120,60);\ng.drawString(NRF.getAddress(),120,70);\ng.drawString('Not connected',120,80);\ng.drawString('Accelerometer',120,105);\ng.drawString('Magnetometer',120,130);\ng.drawString('Barometer',120,165);\ng.setColor('#FF8080').fillRect(40,115,199,125);\ng.fillRect(40,140,199,150);\ng.fillRect(40,175,199,185);\ng.setColor(0).drawString('NO DATA',120,116);\ng.drawString('NO DATA',120,141);\ng.drawString('NO DATA',120,176);\n\nlet r;\nNRF.on('connect',()=>{\n  NRF.setRSSIHandler(rssi=>{\n    if(!r) r=rssi;\n    else r=r*0.95+rssi*0.05;\n    g.clearRect(40,80,199,100);\n    g.drawString('Connected - RSSI: '+Math.round(r),120,80);\n    g.fillRect(50,92,Math.max(40,Math.min(190,240+r*2)),95);\n  });\n});\nNRF.on('disconnect',()=>{\n  r=0;\n  g.clearRect(40,80,199,100);\n  g.drawString('Not connected',120,80);\n});\nfunction draw(){\n  c = c=>g.setColor(c?'#ff0000':-1);\n  c(BTN1.read());g.fillRect(200,0,239,120);\n  c(BTN2.read());g.fillRect(200,120,239,239);\n  c(BTN3.read());g.fillRect(0,120,39,239);\n  c(BTN4.read());g.fillRect(0,0,39,120);\n  g.setColor(0);\n  if (BTN1.read()&&BTN2.read()){\n    clearWatch();\n    g.setBgColor('#202020').clear();\n    setWatch(Bangle.off,BTN1,{edge:-1});\n  }\n}\n[BTN1,BTN2,BTN3,BTN4].forEach(b=>setWatch(draw,b,{repeat:1,edge:0}));\nBangle.buzz();\ndraw();\n\nBangle.on('twist',()=>{\n  g.setColor('#00FFA0').fillRect(40,103,199,114);\n  g.setColor(0).drawString('MOVEMENT WAKEUP',120,105);\n  setTimeout(()=>{\n    g.clearRect(40,103,199,114);\n    g.drawString('Accelerometer',120,105);\n  },1000);\n});\nBangle.on('accel',a=>{\n  g.clearRect(40,115,199,125);\n  g.drawString([a.x.toFixed(2),a.y.toFixed(2),a.z.toFixed(2)],120,115);\n});\nlet m={};\nBangle.on('mag',a=>{\n  x=a.x.toFixed(0);\n  y=a.y.toFixed(0);\n  z=a.z.toFixed(0);\n  if (!m.x) {m.x=x; m.y=y; m.z=z;}\n  g.clearRect(40,140,199,160);\n  g.drawString([x,y,z],120,140);\n  g.drawString([x-m.x,y-m.y,z-m.z],120,150);\n});\nBangle.on('pressure',a=>{\n  g.clearRect(40,165,199,210);\n  g.drawString('Temperature: '+a.temperature.toFixed(2),120,165);\n  g.drawString('Pressure: '+a.pressure.toFixed(2),120,175);\n  let v=0, vRef=0, avg=5;\n  for (let i=0; i<avg; i++){\n    v+=analogRead(D4)/avg;\n    vRef+=E.getAnalogVRef()/avg;\n  }\n  v*=2*vRef;\n  g.drawString(`Battery: ${v.toFixed(2)} V`,120,190);\n  g.drawString(`Charging: ${Bangle.isCharging()?'YES':'NO'}`,120,200);\n});\nBangle.setCompassPower(1);\nBangle.setBarometerPower(1);", true));
   }
 #endif
   //jsiConsolePrintf("bangleFlags2 %d\n",bangleFlags);
@@ -4792,7 +4924,7 @@ you could make all clocks start the launcher with a swipe by using:
     "class" : "Bangle",
     "name" : "factoryReset",
     "generate" : "jswrap_banglejs_factoryReset",
-    "#if" : "defined(BANGLEJS_Q3) || defined(EMULATED)"
+    "#if" : "defined(BANGLEJS_Q3) || defined(EMULATED) || defined(DICKENS)"
 }
 
 Erase all storage and reload it with the default

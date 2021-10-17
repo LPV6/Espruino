@@ -22,7 +22,7 @@ info = {
  'default_console' : "EV_BLUETOOTH",
  'variables' : 5000, # How many variables are allocated for Espruino to use. RAM will be overflowed if this number is too high and code won't compile.
  'bootloader' : 1,
- 'binary_name' : 'espruino_%v_dickens.hex',
+ 'binary_name' : 'espruino_%v_dickensRotated.hex',
  'build' : {
    'optimizeflags' : '-Os',
    'libraries' : [
@@ -103,11 +103,11 @@ chip = {
   },
 };
 
-devices = {
-  'BTN1' : { 'pin' : 'D46', 'pinstate' : 'IN_PULLDOWN' }, # TR Pin negated in software
-  'BTN2' : { 'pin' : 'D28', 'pinstate' : 'IN_PULLDOWN' }, # BR Pin negated in software
-  'BTN3' : { 'pin' : 'D29', 'pinstate' : 'IN_PULLDOWN' }, # BL Pin negated in software
-  'BTN4' : { 'pin' : 'D42', 'pinstate' : 'IN_PULLDOWN' }, # TL Pin negated in software
+devices = { # Buttons rotated 180 degrees compared to original Dickens2 device
+  'BTN1' : { 'pin' : 'D29', 'pinstate' : 'IN_PULLDOWN' }, # TR Pin negated in software
+  'BTN2' : { 'pin' : 'D42', 'pinstate' : 'IN_PULLDOWN' }, # BR Pin negated in software
+  'BTN3' : { 'pin' : 'D46', 'pinstate' : 'IN_PULLDOWN' }, # BL Pin negated in software
+  'BTN4' : { 'pin' : 'D28', 'pinstate' : 'IN_PULLDOWN' }, # TL Pin negated in software
 
   'VIBRATE' : { 'pin' : 'D6' }, # Pin negated in software
   'LCD' : {
@@ -122,7 +122,8 @@ devices = {
             'pin_en' : 'D43', 
             'pin_bl' : 'D32', # backlight negated in get_pins below
             'pin_tearing' : 'D24',
-            'bitrate' : 32000000
+            'bitrate' : 32000000,
+            'rotation': 180 # Display is rotated 180 degrees
           },
   'BAT' : {
             'pin_charging' : 'D13', 

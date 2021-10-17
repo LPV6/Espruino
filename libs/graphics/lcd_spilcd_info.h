@@ -121,7 +121,20 @@ static const unsigned char SPILCD_INIT_CODE[] = {
     0x8d,0,1,  3,   // 1->3  99 en
     0xb5,0,4,  0x08, 0x09, 0x14, 0x08,
     0xb6,0,2,  0, 0, // Positive sweep 0x20->0  GS SS 0x20
-    0x36,0,1,  0x88, // Memory Access Control (0x48 flips upside-down)
+#ifdef LCD_ROTATION
+ #if (LCD_ROTATION == 90)
+    0x36,0,1,  0x78, // Memory Access Control (rotated 90 degrees)
+ #elif (LCD_ROTATION == 180)
+   0x36, 0, 1, /*data*/0x48,
+    0x36,0,1,  0x48, // Memory Access Control (rotated 180 degrees)
+ #elif (LCD_ROTATION == 270)
+    0x36,0,1,  0xB8, // Memory Access Control (rotated 270 degrees)
+ #else
+    0x36,0,1,  0x88, // Memory Access Control (no rotation)
+ #endif   
+#else
+    0x36,0,1,  0x88, // Memory Access Control (no rotation)
+#endif
     0x3a,0,1,  5, // could be 16/12 bit?
     0x90,0,4,  8,  8,  8,  8,
     0xbd,0,1,  6,

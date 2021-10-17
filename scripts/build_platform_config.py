@@ -389,6 +389,10 @@ if "LCD" in board.devices:
     codeOut("#define LCD_WIDTH "+str(board.devices["LCD"]["width"]))
   if "height" in board.devices["LCD"]:
     codeOut("#define LCD_HEIGHT "+str(board.devices["LCD"]["height"]))
+  if "rotation" in board.devices["LCD"]:
+    codeOut("#define LCD_ROTATION "+str(board.devices["LCD"]["rotation"]))
+  else:
+    codeOut("#define LCD_ROTATION 0")
   if "bpp" in board.devices["LCD"]:
     codeOut("#define LCD_BPP "+str(board.devices["LCD"]["bpp"]))
   if "bitrate" in board.devices["LCD"]:
