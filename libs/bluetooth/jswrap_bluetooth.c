@@ -2641,7 +2641,17 @@ JsVar *jswrap_ble_ancsGetAppInfo(JsVar *appId) {
     "return" : ["JsVar", "A `Promise` that is resolved (or rejected) when the connection is complete" ],
     "return_object" : "Promise"
 }
-Get Apple Media Service (AMS) info for the current media player
+Get Apple Media Service (AMS) info for the current media player.
+"playbackinfo" returns a concatenation of three comma-separated values:
+
+- PlaybackState: a string that represents the integer value of the playback state:
+    - PlaybackStatePaused = 0
+    - PlaybackStatePlaying = 1
+    - PlaybackStateRewinding = 2
+    - PlaybackStateFastForwarding = 3
+- PlaybackRate: a string that represents the floating point value of the playback rate.
+- ElapsedTime: a string that represents the floating point value of the elapsed time of the current track, in seconds
+
 */
 JsVar *jswrap_ble_amsGetPlayerInfo(JsVar *id) {
   JsVar *promise = 0;

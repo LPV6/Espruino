@@ -64,6 +64,23 @@ NRF.ancsGetAppInfo("com.google.hangouts").then(a=>print("App",E.toJS(a)));
 // music control
 NRF.amsCommand("pause")
 
+// Track information
+NRF.amsGetTrackInfo("title").then(a=>print("Title:",a))
+NRF.amsGetTrackInfo("artist").then(a=>print("Artist:",a))
+NRF.amsGetTrackInfo("duration").then(a=>print("Duration:",a,"seconds"))
+
+// Music player (and current playback status)
+NRF.amsGetPlayerInfo("name").then(a=>print("Music app name:",a))
+NRF.amsGetPlayerInfo("volume").then(a=>print("Volume:",a))
+NRF.amsGetPlayerInfo("playbackinfo").then(a=>{
+  p = a.split(',');
+  playbackState = ['Paused','Playing','Rewinding','FastForwarding'][p[0]];
+  playbackRate = parseFloat(p[1]);
+  elapsedTime = parseFloat(p[2]);
+  print(playbackState,"@ rate:",playbackRate,"- elapsed time:",elapsedTime,"seconds");
+});
+
+
 */
 
 #ifndef DEBUG
@@ -167,8 +184,8 @@ void ble_ancs_handle_app_attr(BLEPending blep, char *buffer, size_t bufferLen) {
 }
 
 
-void ble_ams_handle_update(BLEPending blep, uint16_t data, char *buffer, size_t bufferLen) {
-  NRF_LOG_DEBUG("AMS update - data 0x%d, buffer:%s\n", data, buffer);
+void ble_ams_handle_track_update(BLEPending blep, uint16_t data, char *buffer, size_t bufferLen) {
+  NRF_LOG_DEBUG("AMS track update - data 0x%d, buffer:%s\n", data, buffer);
   bool isTruncated = data & 128;
   ble_ams_c_track_attribute_id_val_t attrId = data & 127;
   const char *idStr = "?";
@@ -181,6 +198,28 @@ void ble_ams_handle_update(BLEPending blep, uint16_t data, char *buffer, size_t 
       idStr = "title"; break;
     case BLE_AMS_TRACK_ATTRIBUTE_ID_DURATION:
       idStr = "duration"; break;
+  };
+  JsVar *o = jsvNewObject();
+  if (!o) return;
+  jsvObjectSetChildAndUnLock(o, "id", jsvNewFromString(idStr));
+  jsvObjectSetChildAndUnLock(o, "value", jsvNewStringOfLength(bufferLen, buffer));
+  jsvObjectSetChildAndUnLock(o, "truncated", jsvNewFromBool(isTruncated));
+  jsiExecuteEventCallbackOn("E", JS_EVENT_PREFIX"AMS", 1, &o);
+  jsvUnLock(o);
+}
+
+void ble_ams_handle_player_update(BLEPending blep, uint16_t data, char *buffer, size_t bufferLen) {
+  NRF_LOG_DEBUG("AMS player update - data 0x%d, buffer:%s\n", data, buffer);
+  bool isTruncated = data & 128;
+  ble_ams_c_player_attribute_id_val_t attrId = data & 127;
+  const char *idStr = "?";
+  switch (attrId) {
+    case BLE_AMS_PLAYER_ATTRIBUTE_ID_NAME:
+      idStr = "name"; break;
+    case BLE_AMS_PLAYER_ATTRIBUTE_ID_PLAYBACK_INFO:
+      idStr = "playbackinfo"; break;
+    case BLE_AMS_PLAYER_ATTRIBUTE_ID_VOLUME:
+      idStr = "volume"; break;
   };
   JsVar *o = jsvNewObject();
   if (!o) return;
@@ -264,7 +303,7 @@ static void apple_media_setup(void) {
   uint8_t player_attribute_list[] = {BLE_AMS_PLAYER_ATTRIBUTE_ID_NAME,
                               BLE_AMS_PLAYER_ATTRIBUTE_ID_PLAYBACK_INFO,
                               BLE_AMS_PLAYER_ATTRIBUTE_ID_VOLUME};
-  ret = ble_ams_c_entity_update_write(&m_ams_c, BLE_AMS_ENTITY_ID_TRACK, attribute_number, player_attribute_list);
+  ret = ble_ams_c_entity_update_write(&m_ams_c, BLE_AMS_ENTITY_ID_PLAYER, attribute_number, player_attribute_list);
 
   // Register for all EntityTrack Attributes (TrackArtist, TrackAlbum, TrackTitle, TrackDuration);
   attribute_number = 4;
@@ -395,12 +434,12 @@ static void on_ancs_c_evt(ble_ancs_c_evt_t * p_evt) {
   }
 }
 
-/**@brief Function for handling the Apple Notification Service client.
+/**@brief Function for handling the Apple Media Service client.
  *
- * @details This function is called for all events in the Apple Notification client that
+ * @details This function is called for all events in the Apple Media Service client that
  *          are passed to the application.
  *
- * @param[in] p_evt  Event received from the Apple Notification Service client.
+ * @param[in] p_evt  Event received from the Apple Media Service client.
  */
 static void on_ams_c_evt(ble_ams_c_evt_t * p_evt) {
   ret_code_t ret = NRF_SUCCESS;
@@ -421,9 +460,15 @@ static void on_ams_c_evt(ble_ams_c_evt_t * p_evt) {
 
   case BLE_AMS_C_EVT_ENTITY_UPDATE_NOTIFICATION:
     NRF_LOG_INFO("BLE_AMS_C_EVT_ENTITY_UPDATE_NOTIFICATION: entity %d, attr %d\n", p_evt->entity_update_data.entity_id, p_evt->entity_update_data.attribute_id);
-    jsble_queue_pending_buf(BLEP_AMS_UPDATE,
-        p_evt->entity_update_data.attribute_id | (p_evt->entity_update_data.entity_update_flag?128:0),
-        p_evt->entity_update_data.p_entity_update_data, p_evt->entity_update_data.entity_update_data_len);
+    if (p_evt->entity_update_data.entity_id == BLE_AMS_ENTITY_ID_PLAYER) {
+      jsble_queue_pending_buf(BLEP_AMS_PLAYER_UPDATE,
+          p_evt->entity_update_data.attribute_id | (p_evt->entity_update_data.entity_update_flag?128:0),
+          p_evt->entity_update_data.p_entity_update_data, p_evt->entity_update_data.entity_update_data_len);
+    } else {
+      jsble_queue_pending_buf(BLEP_AMS_TRACK_UPDATE,
+          p_evt->entity_update_data.attribute_id | (p_evt->entity_update_data.entity_update_flag?128:0),
+          p_evt->entity_update_data.p_entity_update_data, p_evt->entity_update_data.entity_update_data_len);
+    }
     break;
 
   case BLE_AMS_C_EVT_ENTITY_ATTRIBUTE_READ_RESP: {

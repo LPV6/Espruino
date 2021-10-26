@@ -45,6 +45,8 @@ void ble_ancs_handle_notif_attr(BLEPending blep, ble_ancs_c_evt_notif_t *p_notif
 /** Handle app attributes received event (called outside of IRQ by Espruino) - will poke the relevant events in */
 void ble_ancs_handle_app_attr(BLEPending blep, char *buffer, size_t bufferLen);
 /** Handle AMS track info update (called outside of IRQ by Espruino) - will poke the relevant events in */
-void ble_ams_handle_update(BLEPending blep, uint16_t data, char *buffer, size_t bufferLen);
-/** Handle AMS track info response (called outside of IRQ by Espruino) - will poke the relevant events in */
+void ble_ams_handle_track_update(BLEPending blep, uint16_t data, char *buffer, size_t bufferLen);
+/** Handle AMS player info update (called outside of IRQ by Espruino) - will poke the relevant events in */
+void ble_ams_handle_player_update(BLEPending blep, uint16_t data, char *buffer, size_t bufferLen);
+/** Handle AMS track or player info response (called outside of IRQ by Espruino) - will poke the relevant events in */
 void ble_ams_handle_attribute(BLEPending blep, char *buffer, size_t bufferLen);
