@@ -22,8 +22,10 @@ bool ble_ancs_request_notif(uint32_t uid);
 // Request the attributes for app
 bool ble_ancs_request_app(char *app_id, int len);
 
-// Request an AMS attribute
-bool ble_ams_request_info(ble_ams_c_track_attribute_id_val_t cmd);
+// Request an AMS attribute for the current media player
+bool ble_ams_request_player_info(ble_ams_c_player_attribute_id_val_t cmd);
+// Request an AMS attribute for the currently-playing track
+bool ble_ams_request_track_info(ble_ams_c_track_attribute_id_val_t cmd);
 // Send a command like play/pause/etc
 bool ble_ams_command(ble_ams_c_remote_control_id_val_t cmd);
 

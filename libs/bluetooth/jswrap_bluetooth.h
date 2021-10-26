@@ -116,7 +116,8 @@ void jswrap_ble_sendHIDReport(JsVar *data, JsVar *callback);
 void jswrap_ble_ancsAction(int uid, bool isPositive);
 JsVar *jswrap_ble_ancsGetNotificationInfo(JsVarInt uid);
 JsVar *jswrap_ble_ancsGetAppInfo(JsVar *appId);
-JsVar *jswrap_ble_amsGetMusicInfo(JsVar *id);
+JsVar *jswrap_ble_amsGetPlayerInfo(JsVar *id);
+JsVar *jswrap_ble_amsGetTrackInfo(JsVar *id);
 void jswrap_ble_amsCommand(JsVar *id);
 
 JsVar *jswrap_ble_requestDevice(JsVar *options);

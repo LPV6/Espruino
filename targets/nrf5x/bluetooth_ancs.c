@@ -51,7 +51,7 @@ E.on('AMS',a=>{
   // eg. {id:"title",value:"Track Name too lon",truncated:true}
   //
   if (a.truncated)
-    NRF.amsGetMusicInfo(a.id).then(n => print(a.id, n))
+    NRF.amsGetTrackInfo(a.id).then(n => print(a.id, n))
   else
     print(a.id, a.value);
 });
@@ -104,7 +104,7 @@ static ble_ancs_c_attr_t      m_notif_attr_app_id_latest;              /**< Loca
 // ANCS APP
 static char m_attr_appname[32];                         /**< Buffer to store attribute data. */
 // ANCS NOTIFICATION
-static char m_attr_appid[32];                           /**< Buffer to store attribute data. */
+static char m_attr_appid[48];                           /**< Buffer to store attribute data. */
 static char m_attr_title[64];                           /**< Buffer to store attribute data. */
 static char m_attr_subtitle[64];                        /**< Buffer to store attribute data. */
 static char m_attr_message[512];                        /**< Buffer to store attribute data. */
@@ -112,7 +112,7 @@ static char m_attr_message_size[16];                    /**< Buffer to store att
 static char m_attr_date[20];                            /**< Buffer to store attribute data. */
 static char m_attr_posaction[16];                       /**< Buffer to store attribute data. */
 static char m_attr_negaction[16];                       /**< Buffer to store attribute data. */
-static char m_attr_disp_name[32];                       /**< Buffer to store attribute data. */
+// static char m_attr_disp_name[32];                       /**< Buffer to store attribute data. */
 //AMS state
 static uint8_t m_entity_attribute[BLE_AMS_EA_MAX_DATA_LENGTH];
 
@@ -152,7 +152,7 @@ void ble_ancs_handle_notif_attr(BLEPending blep, ble_ancs_c_evt_notif_t *p_notif
   jsvObjectSetChildAndUnLock(o, "date", jsvNewFromString(m_attr_date));
   jsvObjectSetChildAndUnLock(o, "posAction", jsvNewFromString(m_attr_posaction));
   jsvObjectSetChildAndUnLock(o, "negAction", jsvNewFromString(m_attr_negaction));
-  jsvObjectSetChildAndUnLock(o, "name", jsvNewFromString(m_attr_disp_name));
+  // jsvObjectSetChildAndUnLock(o, "name", jsvNewFromString(m_attr_disp_name));
   bleCompleteTaskSuccessAndUnLock(BLETASK_ANCS_NOTIF_ATTR, o);
 }
 
@@ -168,6 +168,7 @@ void ble_ancs_handle_app_attr(BLEPending blep, char *buffer, size_t bufferLen) {
 
 
 void ble_ams_handle_update(BLEPending blep, uint16_t data, char *buffer, size_t bufferLen) {
+  NRF_LOG_DEBUG("AMS update - data 0x%d, buffer:%s\n", data, buffer);
   bool isTruncated = data & 128;
   ble_ams_c_track_attribute_id_val_t attrId = data & 127;
   const char *idStr = "?";
@@ -209,7 +210,7 @@ void ble_ancs_clear_attr() {
   memset(m_attr_date         ,0, sizeof(m_attr_date));
   memset(m_attr_posaction    ,0, sizeof(m_attr_posaction));
   memset(m_attr_negaction    ,0, sizeof(m_attr_negaction));
-  memset(m_attr_disp_name    ,0, sizeof(m_attr_disp_name));
+  // memset(m_attr_disp_name    ,0, sizeof(m_attr_disp_name));
 }
 
 void ble_ancs_bonding_succeeded(uint16_t conn_handle) {
@@ -258,13 +259,20 @@ static void apple_media_setup(void) {
   m_ams_active = true;
   NRF_LOG_INFO("Apple Media-Notifications Enabled.\n");
 
+  // Register for all EntityPlayer Attributes (Name, PlaybackInfo, Volume);
+  uint8_t attribute_number = 3;
+  uint8_t player_attribute_list[] = {BLE_AMS_PLAYER_ATTRIBUTE_ID_NAME,
+                              BLE_AMS_PLAYER_ATTRIBUTE_ID_PLAYBACK_INFO,
+                              BLE_AMS_PLAYER_ATTRIBUTE_ID_VOLUME};
+  ret = ble_ams_c_entity_update_write(&m_ams_c, BLE_AMS_ENTITY_ID_TRACK, attribute_number, player_attribute_list);
+
   // Register for all EntityTrack Attributes (TrackArtist, TrackAlbum, TrackTitle, TrackDuration);
-  uint8_t attribute_number = 4;
-  uint8_t attribute_list[] = {BLE_AMS_TRACK_ATTRIBUTE_ID_ARTIST,
+  attribute_number = 4;
+  uint8_t track_attribute_list[] = {BLE_AMS_TRACK_ATTRIBUTE_ID_ARTIST,
                               BLE_AMS_TRACK_ATTRIBUTE_ID_ALBUM,
                               BLE_AMS_TRACK_ATTRIBUTE_ID_TITLE,
                               BLE_AMS_TRACK_ATTRIBUTE_ID_DURATION};
-  ret = ble_ams_c_entity_update_write(&m_ams_c, BLE_AMS_ENTITY_ID_TRACK, attribute_number, attribute_list);
+  ret = ble_ams_c_entity_update_write(&m_ams_c, BLE_AMS_ENTITY_ID_TRACK, attribute_number, track_attribute_list);
   jsble_check_error(ret);
 }
 
@@ -412,7 +420,7 @@ static void on_ams_c_evt(ble_ams_c_evt_t * p_evt) {
     break;
 
   case BLE_AMS_C_EVT_ENTITY_UPDATE_NOTIFICATION:
-    NRF_LOG_INFO("BLE_AMS_C_EVT_ENTITY_UPDATE_NOTIFICATION: attr %d\n", p_evt->entity_update_data.attribute_id);
+    NRF_LOG_INFO("BLE_AMS_C_EVT_ENTITY_UPDATE_NOTIFICATION: entity %d, attr %d\n", p_evt->entity_update_data.entity_id, p_evt->entity_update_data.attribute_id);
     jsble_queue_pending_buf(BLEP_AMS_UPDATE,
         p_evt->entity_update_data.attribute_id | (p_evt->entity_update_data.entity_update_flag?128:0),
         p_evt->entity_update_data.p_entity_update_data, p_evt->entity_update_data.entity_update_data_len);
@@ -542,11 +550,11 @@ static void services_init(void)
                                   sizeof(m_attr_appid));
     APP_ERROR_CHECK(ret);
 
-    ret = nrf_ble_ancs_c_app_attr_add(&m_ancs_c,
-                                      BLE_ANCS_APP_ATTR_ID_DISPLAY_NAME,
-                                      (uint8_t*)m_attr_disp_name,
-                                      sizeof(m_attr_disp_name));
-    APP_ERROR_CHECK(ret);
+    // ret = nrf_ble_ancs_c_app_attr_add(&m_ancs_c,
+    //                                   BLE_ANCS_APP_ATTR_ID_DISPLAY_NAME,
+    //                                   (uint8_t*)m_attr_disp_name,
+    //                                   sizeof(m_attr_disp_name));
+    // APP_ERROR_CHECK(ret);
 
     ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
                                   BLE_ANCS_NOTIF_ATTR_ID_TITLE,
@@ -719,8 +727,19 @@ bool ble_ancs_request_app(char *app_id, int len) {
   return ret==0;
 }
 
-// Request an AMS attribute
-bool ble_ams_request_info(ble_ams_c_track_attribute_id_val_t cmd) {
+// Request an AMS player attribute
+bool ble_ams_request_player_info(ble_ams_c_player_attribute_id_val_t cmd) {
+  ret_code_t ret = ble_ams_c_entity_attribute_write(&m_ams_c, BLE_AMS_ENTITY_ID_PLAYER, cmd);
+  jsble_check_error(ret);
+  if (ret==0) {
+    ret = ble_ams_c_entity_attribute_read(&m_ams_c, 0);
+    jsble_check_error(ret);
+  }
+  return ret==0;
+}
+
+// Request an AMS track attribute
+bool ble_ams_request_track_info(ble_ams_c_track_attribute_id_val_t cmd) {
   ret_code_t ret = ble_ams_c_entity_attribute_write(&m_ams_c, BLE_AMS_ENTITY_ID_TRACK, cmd);
   jsble_check_error(ret);
   if (ret==0) {

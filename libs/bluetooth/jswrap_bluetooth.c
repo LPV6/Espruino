@@ -2617,7 +2617,7 @@ JsVar *jswrap_ble_ancsGetAppInfo(JsVar *appId) {
     jsExceptionHere(JSET_ERROR, "ANCS not active");
     return 0;
   }
-  char appIdStr[32];
+  char appIdStr[48];
   jsvGetString(appId, appIdStr, sizeof(appIdStr));
   if (ble_ancs_request_app(appIdStr, strlen(appIdStr))) { // if fails, it'll create an exception
     if (bleNewTask(BLETASK_ANCS_APP_ATTR, appId)) {
@@ -2632,18 +2632,56 @@ JsVar *jswrap_ble_ancsGetAppInfo(JsVar *appId) {
 /*JSON{
     "type" : "staticmethod",
     "class" : "NRF",
-    "name" : "amsGetMusicInfo",
+    "name" : "amsGetPlayerInfo",
     "ifdef" : "NRF52_SERIES",
-    "generate" : "jswrap_ble_amsGetMusicInfo",
+    "generate" : "jswrap_ble_amsGetPlayerInfo",
+    "params" : [
+      ["id","JsVar","Either 'name', 'playbackinfo' or 'volume'"]
+    ],
+    "return" : ["JsVar", "A `Promise` that is resolved (or rejected) when the connection is complete" ],
+    "return_object" : "Promise"
+}
+Get Apple Media Service (AMS) info for the current media player
+*/
+JsVar *jswrap_ble_amsGetPlayerInfo(JsVar *id) {
+  JsVar *promise = 0;
+#if ESPR_BLUETOOTH_ANCS
+  if (!(bleStatus & BLE_ANCS_INITED) || !ble_ancs_is_active()) {
+    jsExceptionHere(JSET_ERROR, "ANCS not active");
+    return 0;
+  }
+  ble_ams_c_player_attribute_id_val_t cmd;
+  if (jsvIsStringEqual(id,"name")) cmd=BLE_AMS_PLAYER_ATTRIBUTE_ID_NAME;
+  else if (jsvIsStringEqual(id,"playbackinfo")) cmd=BLE_AMS_PLAYER_ATTRIBUTE_ID_PLAYBACK_INFO;
+  else if (jsvIsStringEqual(id,"volume")) cmd=BLE_AMS_PLAYER_ATTRIBUTE_ID_VOLUME;
+  else {
+    jsExceptionHere(JSET_ERROR, "Unknown id %q", id);
+    return promise;
+  }
+  if (ble_ams_request_player_info(cmd)) { // if fails, it'll create an exception
+    if (bleNewTask(BLETASK_AMS_ATTR, 0)) {
+      promise = jsvLockAgainSafe(blePromise);
+    }
+  }
+#endif
+  return promise;
+}
+
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "NRF",
+    "name" : "amsGetTrackInfo",
+    "ifdef" : "NRF52_SERIES",
+    "generate" : "jswrap_ble_amsGetTrackInfo",
     "params" : [
       ["id","JsVar","Either 'artist', 'album', 'title' or 'duration'"]
     ],
     "return" : ["JsVar", "A `Promise` that is resolved (or rejected) when the connection is complete" ],
     "return_object" : "Promise"
 }
-Get ANCS info for an app (add id is available via `ancsGetNotificationInfo`)
+Get Apple Media Service (AMS) info for the currently-playing track
 */
-JsVar *jswrap_ble_amsGetMusicInfo(JsVar *id) {
+JsVar *jswrap_ble_amsGetTrackInfo(JsVar *id) {
   JsVar *promise = 0;
 #if ESPR_BLUETOOTH_ANCS
   if (!(bleStatus & BLE_ANCS_INITED) || !ble_ancs_is_active()) {
@@ -2659,7 +2697,7 @@ JsVar *jswrap_ble_amsGetMusicInfo(JsVar *id) {
     jsExceptionHere(JSET_ERROR, "Unknown id %q", id);
     return promise;
   }
-  if (ble_ams_request_info(cmd)) { // if fails, it'll create an exception
+  if (ble_ams_request_track_info(cmd)) { // if fails, it'll create an exception
     if (bleNewTask(BLETASK_AMS_ATTR, 0)) {
       promise = jsvLockAgainSafe(blePromise);
     }
@@ -2675,7 +2713,7 @@ JsVar *jswrap_ble_amsGetMusicInfo(JsVar *id) {
     "ifdef" : "NRF52_SERIES",
     "generate" : "jswrap_ble_amsCommand",
     "params" : [
-      ["id","JsVar","Either 'artist', 'album', 'title' or 'duration'"]
+      ["id","JsVar","For example, 'play', 'pause', 'volup' or 'voldown'"]
     ]
 }
 Send an AMS command to an Apple Media Service device to control music playback
