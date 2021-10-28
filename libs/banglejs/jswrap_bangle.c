@@ -3237,11 +3237,7 @@ NO_INLINE void jswrap_banglejs_init() {
   run the self test code */
   if (firstRun && jsfIsStorageEmpty()) {
   #ifdef WRITE_INITIAL_STORAGE_IF_EMPTY
-    jsiConsolePrintf("Writing initial storage contents...\n");
-    extern const char jsfStorageInitialContents[];
-    extern const int jsfStorageInitialContentLength;
-    jshFlashWrite(jsfStorageInitialContents, FLASH_SAVED_CODE_START, jsfStorageInitialContentLength);
-    jsiConsolePrintf("Write complete.\n");
+    jsfWriteInitialStorage();
   #else
 /*
 

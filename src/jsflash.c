@@ -1033,12 +1033,21 @@ void jsfResetStorage() {
   jsiConsolePrintf("Erasing Storage Area...\n");
   jsfEraseAll();
   jsiConsolePrintf("Erase complete.\n");
+  jsfWriteInitialStorage();
+}
+
+void jsfWriteInitialStorage() {
 #if ESPR_STORAGE_INITIAL_CONTENTS
   // if we store initial contents, write them here after erasing storage
-  jsiConsolePrintf("Writing initial storage contents...\n");
   extern const char jsfStorageInitialContents[];
   extern const int jsfStorageInitialContentLength;
-  jshFlashWrite(jsfStorageInitialContents, FLASH_SAVED_CODE_START, jsfStorageInitialContentLength);
+  if (jsfStorageInitialContentLength<FLASH_SAVED_CODE_LENGTH) {
+    jsiConsolePrintf("Writing initial storage contents to internal flash...\n");
+    jshFlashWrite(jsfStorageInitialContents, FLASH_SAVED_CODE_START, jsfStorageInitialContentLength);
+  } else {
+    jsiConsolePrintf("Writing initial storage contents to external SPI flash...\n");
+    jshFlashWrite(jsfStorageInitialContents, FLASH_SAVED_CODE2_START, jsfStorageInitialContentLength);    
+  }
   jsiConsolePrintf("Write complete.\n");
 #endif
 }
