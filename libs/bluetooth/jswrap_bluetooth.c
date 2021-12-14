@@ -434,6 +434,17 @@ NRF.connect("aa:bb:cc:dd:ee:ff").then(function(gatt) {
   });
 });
 ```
+
+Or:
+
+```
+var gatt;
+NRF.requestDevice(...).then(function(device) {
+  device.on('gattserverdisconnected', function(reason) {
+    console.log("Disconnected ",reason);
+  });
+});
+```
  */
 /*JSON{
   "type" : "event",
@@ -2578,7 +2589,10 @@ void jswrap_ble_ancsAction(int uid, bool isPositive) {
     "return" : ["JsVar", "A `Promise` that is resolved (or rejected) when the connection is complete" ],
     "return_object" : "Promise"
 }
-Get ANCS info for a notification
+Get ANCS info for a notification, eg:
+
+
+
 */
 JsVar *jswrap_ble_ancsGetNotificationInfo(JsVarInt uid) {
   JsVar *promise = 0;
@@ -2609,6 +2623,23 @@ JsVar *jswrap_ble_ancsGetNotificationInfo(JsVarInt uid) {
     "return_object" : "Promise"
 }
 Get ANCS info for an app (add id is available via `ancsGetNotificationInfo`)
+
+Promise returns:
+
+```
+{
+  "uid" : int,
+  "appId" : string,
+  "title" : string,
+  "subtitle" : string,
+  "message" : string,
+  "messageSize" : string,
+  "date" : string,
+  "posAction" : string,
+  "negAction" : string,
+  "name" : string,
+}
+```
 */
 JsVar *jswrap_ble_ancsGetAppInfo(JsVar *appId) {
   JsVar *promise = 0;
@@ -3826,7 +3857,7 @@ NRF.connect(device_address).then(function(d) {
   return s.getCharacteristic("characteristic_uuid");
 }).then(function(c) {
   c.on('characteristicvaluechanged', function(event) {
-    console.log("-> "+event.target.value);
+    console.log("-> ",event.target.value); // this is a DataView
   });
   return c.startNotifications();
 }).then(function(d) {

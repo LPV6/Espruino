@@ -22,6 +22,7 @@
 
 extern JshI2CInfo i2cHRM;
 HrmCallback hrmCallback;
+uint16_t hrmPollInterval = HRM_POLL_INTERVAL_DEFAULT; // in msec, so 20 = 50hz
 
 //Read only.
 #define VC31_DEV_ID        0x00
@@ -85,7 +86,7 @@ HrmCallback hrmCallback;
 #define VC31_ADJUST_STEP_MIN          2
 
 #define VC31_ENV_LIMIT                2500
-#define VC31_PS_LIMIT                 150//350
+#define VC31_PS_LIMIT                 350//150
 
 #define VC31_PPG_LIMIT_L              200
 #define VC31_PPG_LIMIT_H              3900
@@ -112,6 +113,7 @@ typedef struct
 } VC31AdjustInfo_t;
 
 typedef struct {
+  uint8_t ctrl; // current VC31_CTRL reg value
   uint8_t status;
   uint16_t ppgValue;
   uint16_t currentValue;
@@ -121,6 +123,9 @@ typedef struct {
   VC31AdjustInfo_t adjustInfo;
   uint8_t raw[11];
   int ppgOffset; ///< when we adjust the PPG settings, we tweak ppgOffset to ensure there's no big 'jump'
+
+  bool isWearing;
+  int8_t isWearCnt, unWearCnt; // counters for switching worn/unworn state
 } PACKED_FLAGS VC31Info;
 
 VC31Info vcInfo;
@@ -224,6 +229,38 @@ static void vc31_adjust() {
   }
 }
 
+
+void vc31_wearstatus() {
+  if (vcInfo.isWearing) {
+    if ((vcInfo.envValue >= VC31_ENV_LIMIT) ||
+        (vcInfo.psValue < vcInfo.envValue + VC31_PS_LIMIT)) {
+      if (--vcInfo.unWearCnt <= 0) {
+        vcInfo.isWearing = false;
+        vcInfo.unWearCnt = VC31_UNWEAR_CNT;
+        vcInfo.isWearCnt = VC31_ISWEAR_CNT;
+        vcInfo.ctrl &= ~VC31_CTRL_ENABLE_PPG;
+        vc31_w(VC31_CTRL, vcInfo.ctrl);
+      }
+    } else {
+      vcInfo.unWearCnt = VC31_UNWEAR_CNT;
+    }
+  } else { // not wearing
+    if (vcInfo.psValue >= vcInfo.envValue + VC31_PS_LIMIT) {
+      if (--vcInfo.isWearCnt <= 0) {
+        vcInfo.isWearing = true;
+        vcInfo.unWearCnt = VC31_UNWEAR_CNT;
+        vcInfo.isWearCnt = VC31_ISWEAR_CNT;
+        vcInfo.ctrl |= VC31_CTRL_ENABLE_PPG;
+        vc31_w(VC31_CTRL, vcInfo.ctrl);
+        vcInfo.adjustInfo.directionLastBefore = AdjustDirection_Null;
+        vcInfo.adjustInfo.directionLast = AdjustDirection_Null;
+      }
+    } else {
+      vcInfo.isWearCnt = VC31_ISWEAR_CNT;
+    }
+  }
+}
+
 void vc31_irqhandler(bool state, IOEventFlags flags) {
   if (!state || !hrmCallback) return;
 
@@ -240,7 +277,8 @@ void vc31_irqhandler(bool state, IOEventFlags flags) {
   vcInfo.envValue = (buf[10] << 8) | buf[9];
   if (vcInfo.status & VC31_STATUS_D_PPG_OK)
     vc31_adjust();
-  // wear status?
+  if (vcInfo.status & VC31_STATUS_D_PS_OK)
+    vc31_wearstatus();
 
   if (lastPPG & VC31_PPG_ADJUSTED) {
     // did we adjust settings last time? if so, tweak ppgOffset to ensure that this value is the same as last
@@ -269,22 +307,37 @@ void hrm_sensor_on(HrmCallback callback) {
   jshDelayMicroseconds(1000); // wait for HRM to boot
   //if (vc31_r(0)!=0x11) jsiConsolePrintf("VC31 WHO_AM_I failed");
   vc31_w(VC31_GREEN_WAIT, 0xb4);
-  vc31_w(VC31_TIA_WAIT, 0x3c);
+  vc31_w(VC31_TIA_WAIT, 0x54);
   vc31_w(VC31_PS_DIV, 0x09);
-  vc31_w(VC31_IR_WAIT, 0xa0);
-  vc31_w16(VC31_PPG_DIV, VC31_PPG_DIV_100_HZ); // seems to take 2 samples, so this is actually 50Hz samples
+  vc31_w(VC31_IR_WAIT, 0x5F);
   vc31_w(VC31_GREEN_IR_GAP, 0x20);
   vc31_w(VC31_AMP_WAIT, 0x14);
-  uint8_t ctrl = VC31_CTRL_OPA_GAIN_25 | VC31_CTRL_ENABLE_PPG | VC31_CTRL_ENABLE_PRE |
-                 VC31_CTRL_WORK_MODE | VC31_CTRL_INT_DIR_RISING;
-  vc31_w(VC31_CTRL, ctrl);
-  vc31_w16(VC31_GREEN_ADJ, 0xe8c3);
+
+  // seems to take 2 samples, so to get 50Hz (20ms) we need VC31_PPG_DIV_100_HZ
+  uint16_t div;
+  if (hrmPollInterval<2) div = VC31_PPG_DIV_1000_HZ; // 500Hz
+  else if (hrmPollInterval<=10) div = 160; // 100Hz
+  else if (hrmPollInterval<=20) div = VC31_PPG_DIV_100_HZ; // 50Hz
+  else if (hrmPollInterval<=40) div = VC31_PPG_DIV_50_HZ; // 25Hz
+  else if (hrmPollInterval<=80) div = VC31_PPG_DIV_25_HZ; // 12.5Hz
+  else if (hrmPollInterval<=160) div = VC31_PPG_DIV_12_5_HZ; // 6.25Hz
+  else div = VC31_PPG_DIV_10_HZ; // 5Hz
 
   memset(&vcInfo, 0, sizeof(vcInfo));
+  vcInfo.isWearing = true;
+  vcInfo.unWearCnt                = VC31_UNWEAR_CNT;
+  vcInfo.isWearCnt                = VC31_ISWEAR_CNT;
   vcInfo.ppgOffset = 0;
   vcInfo.adjustInfo.step  = 307200;
   vcInfo.adjustInfo.directionLastBefore = AdjustDirection_Null;
   vcInfo.adjustInfo.directionLast = AdjustDirection_Null;
+
+  vc31_w16(VC31_PPG_DIV, div);
+  vcInfo.ctrl = VC31_CTRL_OPA_GAIN_25 | VC31_CTRL_ENABLE_PPG | VC31_CTRL_ENABLE_PRE |
+                VC31_CTRL_WORK_MODE | VC31_CTRL_INT_DIR_RISING;
+  vc31_w(VC31_CTRL, vcInfo.ctrl);
+//  vc31_w16(VC31_GREEN_ADJ, 0xe8c3);
+
 
   vc31_watch_on();
 }
@@ -292,8 +345,8 @@ void hrm_sensor_on(HrmCallback callback) {
 void hrm_sensor_off() {
   vc31_watch_off();
   vc31_w16(VC31_GREEN_ADJ, 0);
-  uint8_t ctrl = VC31_CTRL_OPA_GAIN_25 | VC31_CTRL_ENABLE_PRE | VC31_CTRL_INT_DIR_RISING;
-  vc31_w(VC31_CTRL, ctrl);
+  vcInfo.ctrl = VC31_CTRL_OPA_GAIN_25 | VC31_CTRL_ENABLE_PRE | VC31_CTRL_INT_DIR_RISING;
+  vc31_w(VC31_CTRL, vcInfo.ctrl);
   hrmCallback = NULL;
 }
 
@@ -308,6 +361,9 @@ JsVar *hrm_sensor_getJsVar() {
     jsvObjectSetChildAndUnLock(o,"vcPS",jsvNewFromInteger(vcInfo.psValue));
     jsvObjectSetChildAndUnLock(o,"vcEnv",jsvNewFromInteger(vcInfo.envValue));
     jsvObjectSetChildAndUnLock(o,"vcRaw",jsvNewArrayBufferWithData(sizeof(vcInfo.raw), vcInfo.raw));
+    jsvObjectSetChildAndUnLock(o,"isWearing",jsvNewFromBool(vcInfo.isWearing));
+    //jsvObjectSetChildAndUnLock(o,"isWearCnt",jsvNewFromInteger(vcInfo.isWearCnt));
+    //jsvObjectSetChildAndUnLock(o,"unWearCnt",jsvNewFromInteger(vcInfo.unWearCnt));
   }
   return o;
 }

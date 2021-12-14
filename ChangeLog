@@ -47,6 +47,64 @@
             nRF52: swap getSerial bytes around so device ID string matches nrfjprog
             Bangle.js2: bootloader can now flash firmware from a file in Storage
             Bangle.js2: Add second Storage area in internal flash for fast access, memory-mapped files
+<<<<<<< HEAD
+=======
+            Fix unhandled reject of a previously resolved promise (fix #1433)
+            Bangle.js: E.showMessage/showPrompt can now display images via optional img argument
+                       E.showMessage/showPrompt handle padding correctly if no widgets are displayed
+            Bangle.js2: Fix setUI clockupdown handling of 'up' 
+            Bangle.js: Ensure builtin E.show* (and fake LEDs) wake the LCD up
+            Storage check now *only* happens on first boot
+            Ensure __FILE__ is set by the time bootcode runs
+            If executing from storage, work out line numbers and print filename for Errors
+            Bangle.js: Don't store line numbers in functions - no need when execing from flash
+            Bangle.js: Add E.showScroller for scrollable lists
+            Fix issue where invalid JSON stopped execution after Storage.readJSON
+            Bangle.js: Add Storage.hash for boot0 cache change checking
+            Bangle.js: A single widget load failure will now not remove all widgets
+            Bangle.js: widgets are now sorted by .sortorder
+            While and for loop conditions now use Expression, not AssignmentExpression (eg. while(0,0) is fine) (fix #2068)
+            Bangle.js2: Fix 'stuck' bottom row of pixels if scrolling downwards with g.scroll(0,1)
+            Bangle.js: Fix issue where minified E.showMenu was creating a global var called 'c'
+            Fix string formatting for "Field or method X does not already exist" error
+            Graphics: drawRect,fillRect,clearRect are now able to take an object as the first argument
+            Bangle.js: Add Bangle.appRect to allow apps to see how much space is available for them
+            Bangle.js: Add `Bangle.setOptions({hrmPollInterval:...});`
+            Bangle.js2: Bangle.dragHandler is now cleared by setUI (fix #2078)
+            Bangle.js2: Adjust full battery voltage
+            Avoid Watchdog reboot during compact if compacting a lot of data (fix #2075)
+            Storage: Fix issue where compacting empty storage could cause out of bounds erase (fix #2081)
+            Fix issue where pretokenised '1 - - 1' would turn to '1--1' (fix #2086)
+            Fix break scoping error in nested for loops (fix #2084)
+            Fix memory leak when rejecting pre-resolved promise (test_promise11.js)
+            Fix parser errors in arrow functions (fix #2067)
+            Bangle.js2: Add Unistroke object, and 'Bangle.stroke' event
+            Fix pretokenised '1 / /.../' and ensure jslSeek resets the previous token (ref #2086)
+            nRF52: Move neopixel LRCK pin which can't be disabled due to hardware errata, and restore state after (fix #2071)
+            Bangle.js2: Disable unboard flash bank for now (issues with erase on reboot)
+            Bangle.js1: Fix E.showScroller implementation
+            Bangle.js2: Ensure tap and twist turn LCD backlight on as well as unlocking
+            Bangle.js1: Bangle.setUI now deletes touchHandler (fix #2095)
+            Bangle.js2: Tweak battery high mark again
+            Bangle.js2: Fix E.showScroller when there are less than 3 menu items
+            Bangle.js2: Bangle.off and .softOff now turn off touchscreen if it was on 
+            Bangle.js2: Ensure antialiased line routines are built in
+            Bangle.js2: Add HRM wear detection (LED no longer turns on if HRM not on skin)
+            Bangle.js2: Add a 32 entry cache to speed up finding common files - improves app load times
+            Bangle.js: Ensure locale honours 12 hour setting (https://github.com/espruino/BangleApps/issues/892)
+            Bangle.js2: Ensure EXTCOMIN time for LCD is nearer 2us (from datasheet) (ref #2097)
+            Bangle.js2: New default JS firmware
+            Bangle.js2: Minify Bangle.drawWidgets
+            Bangle.js: Bangle.appRect now copes with widgets at the bottom
+            Bangle.js2: Fix >128 ASCII codes for 12x20 font (fix #2105)
+            Bangle.js: Add SPI flash read-after-write to verify write succeeded (fix #2109)
+            Bangle.js: Fix E.showMenu clear if background color is set (https://github.com/espruino/BangleApps/issues/1024)
+            Bangle.js: Re-add E.showMenu predraw callback (fix #2108)
+            Bangle.js2: Add hrmRd/hrmWr that allow you to poke the HRM directly
+            Bangle.js: Fix for previous SPI flash write verify when <4 bytes written
+            Bangle.js2: Add write protection for bootloader and softdevice to avoid accidental bricking
+            Bangle.js2: Bootloader now attempts multiple times to initialise ext flash, and waits longer (fix fw update app issues)
+>>>>>>> master
             
      2v10 : Bangle.js: Improved HRM calculations - swapped autocorrelation for bandpass filter
             Bangle.js: Significantly improved step counting algorithm using bandpass filter (fix #1846)

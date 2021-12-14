@@ -77,6 +77,15 @@ __attribute__( ( long_call, section(".data") ) ) static unsigned char spiFlashSt
   return buf;
 }
 
+static void flashReset(){
+  unsigned char buf[1];
+  buf[0] = 0x66;
+  spiFlashWriteCS(buf,1);
+  buf[0] = 0x99;
+  spiFlashWriteCS(buf,1);
+  nrf_delay_us(50);
+}
+
 // Wake up the SPI Flash from deep power-down mode
 static void flashWakeUp() {
   unsigned char buf = 0xAB;  // SPI Flash release from deep power-down
@@ -99,21 +108,34 @@ void spiFlashInit() {
 #endif
   nrf_delay_us(100);
 #ifdef SPIFLASH_SLEEP_CMD
-  // Release from deep power-down - might need a couple of attempts...?
+  // Release from deep power-down - might need a couple of attempts...
+  flashReset();
+  flashWakeUp();
+  flashWakeUp();
   flashWakeUp();
   flashWakeUp();
 #endif  
-  // disable lock bits
-  // wait for write enable
+  // disable block protect 0/1/2
   unsigned char buf[2];
-  int timeout = 1000;
-  while (timeout-- && !(spiFlashStatus()&2)) {
-    buf[0] = 6; // write enable
-    spiFlashWriteCS(buf,1);
-  }
-  buf[0] = 1; // write status register
-  buf[1] = 0;
-  spiFlashWriteCS(buf,2);
+  int tries = 3;
+  // disable lock bits on SPI flash
+  do {
+    // wait for write enable
+    int timeout = 1000;
+    while (timeout-- && !(spiFlashStatus()&2)) {
+      buf[0] = 6; // write enable
+      spiFlashWriteCS(buf,1);
+      jshDelayMicroseconds(10);
+    }
+    jshDelayMicroseconds(10);
+    buf[0] = 1; // write status register, disable BP0/1/2
+    buf[1] = 0;
+    spiFlashWriteCS(buf,2);
+    jshDelayMicroseconds(10);
+    // keep trying in case it didn't work first time
+  } while (tries-- && (spiFlashStatus()&28)/*check BP0/1/2*/);
+  // give flash time to boot? Some devices need this it seems.
+  jshDelayMicroseconds(100000);
 }
 
 __attribute__( ( long_call, section(".data") ) ) void spiFlashReadAddr(unsigned char *buf, uint32_t addr, uint32_t len) {
@@ -182,6 +204,8 @@ bool flashEqual(FlashHeader header, uint32_t addr) {
 }
 
 // Inline LCD calls for general SPI LCDs
+#if defined(LCD_CONTROLLER_GC9A01)
+// LCD output for generic SPI LCDs
 __attribute__( ( long_call, section(".data") ) ) void xlcd_wr(int data) {
   for (int bit=7;bit>=0;bit--) {
     NRF_GPIO_PIN_WRITE_FAST(LCD_SPI_SCK, 0 );
@@ -189,8 +213,10 @@ __attribute__( ( long_call, section(".data") ) ) void xlcd_wr(int data) {
     NRF_GPIO_PIN_WRITE_FAST(LCD_SPI_SCK, 1 );
   }
 }
+#endif
 
 __attribute__( ( long_call, section(".data") ) ) void xlcd_rect(int x1,int y1, int x2, int y2, bool white) {
+#if defined(LCD_CONTROLLER_GC9A01)
   NRF_GPIO_PIN_WRITE_FAST(LCD_SPI_DC, 0); // command
   NRF_GPIO_PIN_WRITE_FAST(LCD_SPI_CS, 0);
   xlcd_wr(0x2A);
@@ -223,6 +249,7 @@ __attribute__( ( long_call, section(".data") ) ) void xlcd_rect(int x1,int y1, i
   for (int x=0;x<l*2;x++)
     xlcd_wr(white ? 0xFF : 0);
   NRF_GPIO_PIN_WRITE_FAST(LCD_SPI_CS,1);
+#endif
 }
 
 __attribute__( ( long_call, section(".data") ) ) void flashDoUpdate(FlashHeader header, uint32_t headerAddr) {
@@ -288,7 +315,7 @@ static uint32_t jsfAlignAddress(uint32_t addr) {
 /** Load a file header from flash, return true if it is valid.
  * If readFullName==false, only the first 4 bytes of the name are loaded */
 static bool jsfGetFileHeader(uint32_t addr, JsfFileHeader *header) {
-  spiFlashReadAddr(header, addr, sizeof(JsfFileHeader));
+  spiFlashReadAddr((unsigned char*)header, addr, sizeof(JsfFileHeader));
   return (header->size != 0xFFFFFFFF) &&
     (addr+(uint32_t)sizeof(JsfFileHeader)+jsfGetFileSize(header) <= JSF_END_ADDRESS);
 }
@@ -413,9 +440,10 @@ void flashCheckAndRun() {
 
   uint32_t addr = JSF_START_ADDRESS;
   JsfFileHeader header;
+  //lcd_print_hex(addr); lcd_println(" ADDR");
   if (jsfGetFileHeader(addr, &header)) do {
     char *n = &header.name[0];
-    //if (n[0]) lcd_println(n);
+    //if (n[0]) lcd_println(n); else lcd_println("-DELETED-");
     if (n[0]=='.' && n[1]=='f' && n[2]=='i' && n[3]=='r' && n[4]=='m' && n[5]=='w' && n[6]=='a' && n[7]=='r' && n[8]=='e' && n[9]==0) {
       lcd_println("FOUND FIRMWARE");
       flashCheckFile(addr + sizeof(JsfFileHeader)/*, jsfGetFileSize(&header)*/);

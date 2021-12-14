@@ -470,11 +470,12 @@ void jsiSoftInit(bool hasBeenReset) {
   // Run wrapper initialisation stuff
   jswInit();
 
-  // Search for invalid storage and remove it
+  // Search for invalid storage and erase
+  // do this only on first boot.
 #if !defined(EMSCRIPTEN) && !defined(SAVE_ON_FLASH)
   bool fullTest = jsiStatus & JSIS_FIRST_BOOT;
+  if (fullTest) {
 #ifdef BANGLEJS
-  if (fullTest)
     jsiConsolePrintf("Checking storage...\n");
 #endif
 #ifdef DICKENS
@@ -489,6 +490,7 @@ void jsiSoftInit(bool hasBeenReset) {
     if (fullTest)
       jsiConsolePrintf("Storage Ok.\n");
 #endif
+    }
   }
 #endif
 
@@ -2258,13 +2260,12 @@ void jsiIdle() {
         jsvKill();
         jshReset();
         jsvInit(0);
+        jsvObjectSetChildAndUnLock(execInfo.root, "__FILE__", jsfVarFromName(filename));
         jsiSemiInit(false); // don't autoload code
         // load the code we specified
         JsVar *code = jsfReadFile(filename,0,0);
-        if (code) {
-          jsvObjectSetChildAndUnLock(execInfo.root, "__FILE__", jsfVarFromName(filename));
+        if (code)
           jsvUnLock2(jspEvaluateVar(code,0,0), code);
-        }
       } else {
         jsiSoftKill();
         jspSoftKill();
@@ -2500,9 +2501,12 @@ void jsiDebuggerLoop() {
     char lineStr[9];
     // Get a string fo the form '1234    ' for the line number
     // ... but only if the line number was set, otherwise use spaces
+#ifndef ESPR_NO_LINE_NUMBERS
     if (lex->lineNumberOffset) {
       itostr((JsVarInt)jslGetLineNumber() + (JsVarInt)lex->lineNumberOffset - 1, lineStr, 10);
-    } else {
+    } else
+#endif
+    {
       lineStr[0]=0;
     }
     size_t lineLen = strlen(lineStr);

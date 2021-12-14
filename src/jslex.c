@@ -12,6 +12,9 @@
  * ----------------------------------------------------------------------------
  */
 #include "jslex.h"
+#ifndef SAVE_ON_FLASH
+#include "jsflash.h"
+#endif
 
 JsLex *lex;
 
@@ -676,7 +679,9 @@ void jslInit(JsVar *var) {
   lex->tokenLastStart = 0;
   lex->tokenl = 0;
   lex->tokenValue = 0;
+#ifndef ESPR_NO_LINE_NUMBERS
   lex->lineNumberOffset = 0;
+#endif
   // set up iterator
   jsvStringIteratorNew(&lex->it, lex->sourceVar, 0);
   jsvUnLock(lex->it.var); // see jslGetNextCh
@@ -701,6 +706,7 @@ void jslSeekTo(size_t seekToChar) {
   jsvUnLock(lex->it.var); // see jslGetNextCh
   lex->tokenStart = 0;
   lex->tokenLastStart = 0;
+  lex->tk = LEX_EOF;
   jslPreload();
 }
 
@@ -712,6 +718,7 @@ void jslSeekToP(JslCharPos *seekToChar) {
   lex->currCh = seekToChar->currCh;
   lex->tokenStart = 0;
   lex->tokenLastStart = 0;
+  lex->tk = LEX_EOF;
   jslGetNextToken();
 }
 
@@ -914,6 +921,20 @@ bool jslMatch(int expected_tk) {
   return true;
 }
 
+// When minifying/pretokenising, do we need to insert a space between these tokens?
+static bool jslPreserveSpaceBetweenTokens(int lastTk, int newTk) {
+  // spaces between numbers/IDs
+  if ((lastTk==LEX_ID || lastTk==LEX_FLOAT || lastTk==LEX_INT) &&
+      (newTk==LEX_ID ||  newTk==LEX_FLOAT  || newTk==LEX_INT)) return true;
+  // spaces between - - and  + + : https://github.com/espruino/Espruino/issues/2086
+  if ((lastTk=='-' && newTk=='-') ||
+      (lastTk=='+' && newTk=='+') ||
+      (lastTk=='/' && newTk==LEX_REGEX) ||
+      (lastTk==LEX_REGEX && (newTk=='/' || newTk==LEX_ID)))
+    return true;
+  return false;
+}
+
 JsVar *jslNewTokenisedStringFromLexer(JslCharPos *charFrom, size_t charTo) {
   // New method - tokenise functions
   // save old lex
@@ -926,8 +947,7 @@ JsVar *jslNewTokenisedStringFromLexer(JslCharPos *charFrom, size_t charTo) {
   jslSeekToP(charFrom);
   int lastTk = LEX_EOF;
   while (lex->tk!=LEX_EOF && jsvStringIteratorGetIndex(&lex->it)<=charTo+1) {
-    if ((lex->tk==LEX_ID || lex->tk==LEX_FLOAT || lex->tk==LEX_INT) &&
-        ( lastTk==LEX_ID ||  lastTk==LEX_FLOAT ||  lastTk==LEX_INT)) {
+    if (jslPreserveSpaceBetweenTokens(lastTk, lex->tk)) {
       length++; // we need to insert a space
     }
     if (lex->tk==LEX_ID ||
@@ -956,8 +976,7 @@ JsVar *jslNewTokenisedStringFromLexer(JslCharPos *charFrom, size_t charTo) {
     jsvStringIteratorClone(&it, &charFrom->it);
     lastTk = LEX_EOF;
     while (lex->tk!=LEX_EOF && jsvStringIteratorGetIndex(&lex->it)<=charTo+1) {
-      if ((lex->tk==LEX_ID || lex->tk==LEX_FLOAT || lex->tk==LEX_INT) &&
-          ( lastTk==LEX_ID ||  lastTk==LEX_FLOAT ||  lastTk==LEX_INT)) {
+      if (jslPreserveSpaceBetweenTokens(lastTk, lex->tk)) {
         jsvStringIteratorSetCharAndNext(&dstit, ' ');
       }
       if (lex->tk==LEX_ID ||
@@ -1086,9 +1105,26 @@ void jslPrintTokenisedString(JsVar *code, vcbprintf_callback user_callback, void
 
 void jslPrintPosition(vcbprintf_callback user_callback, void *user_data, size_t tokenPos) {
   size_t line,col;
+#ifndef SAVE_ON_FLASH
+  if (jsvIsNativeString(lex->sourceVar) || jsvIsFlashString(lex->sourceVar)) {
+    uint32_t stringAddr = (uint32_t)lex->sourceVar->varData.nativeStr.ptr;
+    JsfFileHeader header;
+    uint32_t fileAddr = jsfFindFileFromAddr(stringAddr, &header);
+    if (fileAddr) {
+      JsVar *fileStr = jsvAddressToVar(fileAddr, jsfGetFileSize(&header));
+      jsvGetLineAndCol(fileStr, tokenPos + stringAddr - fileAddr, &line, &col);
+      JsVar *name = jsfVarFromName(header.name);
+      cbprintf(user_callback, user_data,"line %d col %d in %v\n", line, col, name);
+      jsvUnLock2(fileStr,name);
+      return;
+    }
+  }
+#endif
   jsvGetLineAndCol(lex->sourceVar, tokenPos, &line, &col);
+#ifndef ESPR_NO_LINE_NUMBERS
   if (lex->lineNumberOffset)
     line += (size_t)lex->lineNumberOffset - 1;
+#endif
   cbprintf(user_callback, user_data, "line %d col %d\n", line, col);
 }
 

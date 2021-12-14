@@ -69,6 +69,9 @@
 #ifdef USE_TENSORFLOW
 #include "jswrap_tensorflow.h"
 #endif
+#if ESPR_BANGLE_UNISTROKE
+#include "unistroke.h"
+#endif
 
 /*JSON{
   "type": "class",
@@ -344,6 +347,37 @@ Emitted when the touchscreen is pressed
 }
 Emitted when the touchscreen is dragged or released
 */
+/*JSON{
+  "type" : "event",
+  "class" : "Bangle",
+  "name" : "stroke",
+  "params" : [["event","JsVar","Object of form `{xy:Uint8Array([x1,y1,x2,y2...])}` containing touch coordinates"]],
+  "ifdef" : "BANGLEJS2"
+}
+Emitted when the touchscreen is dragged for a large enough distance to count as a gesture.
+
+If Bangle.strokes is defined and populated with data from `Unistroke.new`, the `event` argument will also
+contain a `stroke` field containing the most closely matching stroke name.
+
+For example:
+
+```
+Bangle.strokes = {
+  up : Unistroke.new(new Uint8Array([57, 151, ... 158, 137])),
+  alpha : Unistroke.new(new Uint8Array([161, 55, ... 159, 161])),
+};
+Bangle.on('stroke',o=>{
+  print(o.stroke);
+  g.clear(1).drawPoly(o.xy);
+});
+// Might print something like
+{
+  "xy": new Uint8Array([149, 50, ... 107, 136]),
+  "stroke": "alpha"
+}
+```
+*/
+
 
 #define ACCEL_HISTORY_LEN 50 ///< Number of samples of accelerometer history
 
@@ -619,7 +653,15 @@ typedef enum {
 } TouchState;
 TouchState touchLastState; /// What happened in the last event?
 TouchState touchLastState2; /// What happened in the event before last?
-TouchState touchStatus; ///< What has happened *while the current touch is in progress*
+TouchState touchStatus; ///< What has happened *while the current touch is in progress
+typedef enum {
+  TG_SWIPE_NONE,
+  TG_SWIPE_LEFT,
+  TG_SWIPE_RIGHT,
+  TG_SWIPE_UP,
+  TG_SWIPE_DOWN,
+} TouchGestureType;
+TouchGestureType touchGesture; /// is JSBT_SWIPE is set, what happened?
 
 /// How often should we fire 'health' events?
 #define HEALTH_INTERVAL 600000 // 10 minutes (600 seconds)
@@ -699,23 +741,22 @@ typedef enum {
   JSBT_HRM_DATA = 1<<16, ///< Heart rate data is ready for analysis
   JSBT_CHARGE_EVENT = 1<<17, ///< we need to fire a charging event
   JSBT_STEP_EVENT = 1<<18, ///< we've detected a step via the pedometer
-  JSBT_SWIPE_LEFT = 1<<19, ///< swiped left over touchscreen
-  JSBT_SWIPE_RIGHT = 1<<20, ///< swiped right over touchscreen
-  JSBT_SWIPE_UP = 1<<21, ///< swiped left over touchscreen (Bangle 2 only)
-  JSBT_SWIPE_DOWN = 1<<22, ///< swiped right over touchscreen (Bangle 2 only)
-  JSBT_SWIPE_MASK = JSBT_SWIPE_LEFT | JSBT_SWIPE_RIGHT | JSBT_SWIPE_UP | JSBT_SWIPE_DOWN,
-  JSBT_TOUCH_LEFT = 1<<23, ///< touch lhs of touchscreen
-  JSBT_TOUCH_RIGHT = 1<<24, ///< touch rhs of touchscreen
+  JSBT_SWIPE = 1<<19, ///< swiped over touchscreen, info in touchGesture
+  JSBT_TOUCH_LEFT = 1<<20, ///< touch lhs of touchscreen
+  JSBT_TOUCH_RIGHT = 1<<21, ///< touch rhs of touchscreen
   JSBT_TOUCH_MASK = JSBT_TOUCH_LEFT | JSBT_TOUCH_RIGHT,
 #ifdef TOUCH_DEVICE
-  JSBT_DRAG = 1<<25,
+  JSBT_DRAG = 1<<22,
 #endif
-  JSBT_TWIST_EVENT = 1<<26, ///< Watch was twisted
-  JSBT_FACE_UP = 1<<27, ///< Watch was turned face up/down (faceUp holds the actual state)
-  JSBT_ACCEL_INTERVAL_DEFAULT = 1<<28, ///< reschedule accelerometer poll handler to default speed
-  JSBT_ACCEL_INTERVAL_POWERSAVE = 1<<29, ///< reschedule accelerometer poll handler to powersave speed
-  JSBT_HRM_INSTANT_DATA = 1<<30, ///< Instant heart rate data
-  JSBT_HEALTH = 1<<31, ///< New 'health' event
+#if ESPR_BANGLE_UNISTROKE
+  JSBT_STROKE = 1<<23, // a gesture has been made on the touchscreen
+#endif
+  JSBT_TWIST_EVENT = 1<<24, ///< Watch was twisted
+  JSBT_FACE_UP = 1<<25, ///< Watch was turned face up/down (faceUp holds the actual state)
+  JSBT_ACCEL_INTERVAL_DEFAULT = 1<<26, ///< reschedule accelerometer poll handler to default speed
+  JSBT_ACCEL_INTERVAL_POWERSAVE = 1<<27, ///< reschedule accelerometer poll handler to powersave speed
+  JSBT_HRM_INSTANT_DATA = 1<<28, ///< Instant heart rate data
+  JSBT_HEALTH = 1<<29, ///< New 'health' event
 } JsBangleTasks;
 JsBangleTasks bangleTasks;
 
@@ -797,34 +838,6 @@ void lcd_flip(JsVar *parent, bool all) {
   graphicsSetVar(&gfx);
   jsvUnLock(graphics);
 #endif
-}
-
-static char clipi8(int x) {
-  if (x<-128) return -128;
-  if (x>127) return 127;
-  return (char)x;
-}
-
-static int twosComplement(int val, unsigned char bits) {
-  if (val & ((unsigned int)1 << (bits - 1)))
-    val -= (unsigned int)1 << bits;
-  return val;
-}
-
-// quick integer square root
-// https://stackoverflow.com/questions/31117497/fastest-integer-square-root-in-the-least-amount-of-instructions
-static unsigned short int int_sqrt32(unsigned int x) {
-  unsigned short int res=0;
-  unsigned short int add= 0x8000;
-  int i;
-  for(i=0;i<16;i++) {
-    unsigned short int temp=res | add;
-    unsigned int g2=temp*temp;
-    if (x>=g2)
-      res=temp;
-    add>>=1;
-  }
-  return res;
 }
 
 /// Clear the given health state back to defaults
@@ -1046,6 +1059,10 @@ void peripheralPollHandler() {
         bangleTasks |= JSBT_LCD_ON;
         handled = true;
       }
+      if (!(bangleFlags&JSBF_LCD_BL_ON)) {
+        bangleTasks |= JSBT_LCD_BL_ON;
+        handled = true;
+      }
       if (bangleFlags&JSBF_LOCKED) {
         bangleTasks |= JSBT_UNLOCK;
         handled = true;
@@ -1209,6 +1226,8 @@ void peripheralPollHandler() {
         inactivityTimer = 0;
         if (!(bangleFlags&JSBF_LCD_ON))
           bangleTasks |= JSBT_LCD_ON;
+        if (!(bangleFlags&JSBF_LCD_BL_ON))
+          bangleTasks |= JSBT_LCD_BL_ON;
         if (bangleFlags&JSBF_LOCKED)
           bangleTasks |= JSBT_UNLOCK;
       }
@@ -1397,12 +1416,14 @@ bool btnTouchHandler() {
   if ((touchLastState2==TS_RIGHT && touchLastState==TS_BOTH && state==TS_LEFT) ||
       (touchLastState==TS_RIGHT && state==1)) {
     touchStatus |= TS_SWIPED;
-    bangleTasks |= JSBT_SWIPE_LEFT;
+    touchGesture = TG_SWIPE_LEFT;
+    bangleTasks |= JSBT_SWIPE;
   }
   if ((touchLastState2==TS_LEFT && touchLastState==TS_BOTH && state==TS_RIGHT) ||
       (touchLastState==TS_LEFT && state==TS_RIGHT)) {
     touchStatus |= TS_SWIPED;
-    bangleTasks |= JSBT_SWIPE_RIGHT;
+    touchGesture = TG_SWIPE_RIGHT;
+    bangleTasks |= JSBT_SWIPE;
   }
   if (!state) {
     if (touchLastState && !(touchStatus&TS_SWIPED)) {
@@ -1449,6 +1470,9 @@ void touchHandlerInternal(int tx, int ty, int pts, int gesture) {
   // ignore if locked
   if (bangleFlags & JSBF_LOCKED) return;
 
+  int dx = tx-touchX;
+  int dy = ty-touchY;
+
   touchX = tx;
   touchY = ty;
   touchPts = pts;
@@ -1457,17 +1481,21 @@ void touchHandlerInternal(int tx, int ty, int pts, int gesture) {
     switch (gesture) { // gesture
     case 0:break; // no gesture
     case 1: // slide down
-        bangleTasks |= JSBT_SWIPE_DOWN;
-        break;
+      touchGesture = TG_SWIPE_DOWN;
+      bangleTasks |= JSBT_SWIPE;
+      break;
     case 2: // slide up
-        bangleTasks |= JSBT_SWIPE_UP;
-        break;
+      touchGesture = TG_SWIPE_UP;
+      bangleTasks |= JSBT_SWIPE;
+      break;
     case 3: // slide left
-        bangleTasks |= JSBT_SWIPE_LEFT;
-        break;
+      touchGesture = TG_SWIPE_LEFT;
+      bangleTasks |= JSBT_SWIPE;
+      break;
     case 4: // slide right
-        bangleTasks |= JSBT_SWIPE_RIGHT;
-        break;
+      touchGesture = TG_SWIPE_RIGHT;
+      bangleTasks |= JSBT_SWIPE;
+      break;
     case 5: // single click
       if (touchX<80) bangleTasks |= JSBT_TOUCH_LEFT;
       else bangleTasks |= JSBT_TOUCH_RIGHT;
@@ -1490,6 +1518,12 @@ void touchHandlerInternal(int tx, int ty, int pts, int gesture) {
     bangleTasks |= JSBT_DRAG;
     // ensure we don't sleep if touchscreen is being used
     inactivityTimer = 0;
+#if ESPR_BANGLE_UNISTROKE
+    if (unistroke_touch(touchX, touchY, dx, dy, touchPts)) {
+      bangleTasks |= JSBT_STROKE;
+    }
+#endif
+    jshHadEvent();
   }
 
   lastGesture = gesture;
@@ -1980,6 +2014,7 @@ Set internal options used for gestures, etc...
 * `lockTimeout` how many milliseconds before the screen locks
 * `lcdPowerTimeout` how many milliseconds before the screen turns off
 * `backlightTimeout` how many milliseconds before the screen's backlight turns off
+* `hrmPollInterval` set the requested poll interval for the heart rate monitor. On Bangle.js 2 (only 10,20,40,80,160,200 ms are supported, and polling rate may not be exact)
 
 Where accelerations are used they are in internal units, where `8192 = 1g`
 
@@ -1995,7 +2030,13 @@ JsVar * _jswrap_banglejs_setOptions(JsVar *options, bool createObject) {
   int stepCounterThresholdLow, stepCounterThresholdHigh; // ignore these with new step counter
   int _accelGestureStartThresh = accelGestureStartThresh*accelGestureStartThresh;
   int _accelGestureEndThresh = accelGestureEndThresh*accelGestureEndThresh;
+#ifdef HEARTRATE
+  int _hrmPollInterval = hrmPollInterval;
+#endif
   jsvConfigObject configs[] = {
+#ifdef HEARTRATE
+      {"hrmPollInterval", JSV_INTEGER, &_hrmPollInterval},
+#endif
       {"gestureStartThresh", JSV_INTEGER, &_accelGestureStartThresh},
       {"gestureEndThresh", JSV_INTEGER, &_accelGestureEndThresh},
       {"gestureInactiveCount", JSV_INTEGER, &accelGestureInactiveCount},
@@ -2033,6 +2074,9 @@ JsVar * _jswrap_banglejs_setOptions(JsVar *options, bool createObject) {
     if (backlightTimeout<0) backlightTimeout=0;
     accelGestureStartThresh = int_sqrt32(_accelGestureStartThresh);
     accelGestureEndThresh = int_sqrt32(_accelGestureEndThresh);
+#ifdef HEARTRATE
+    hrmPollInterval = (uint16_t)_hrmPollInterval;
+#endif
   }
   return 0;
 }
@@ -2145,11 +2189,11 @@ int jswrap_banglejs_isCharging() {
 
 /// get battery percentage
 JsVarInt jswrap_banglejs_getBattery() {
-#ifdef BAT_PIN_VOLTAGE
+#if defined(BAT_PIN_VOLTAGE) && !defined(EMULATED)
   JsVarFloat v = jshPinAnalog(BAT_PIN_VOLTAGE);
 #ifdef BANGLEJS_Q3
   const JsVarFloat vlo = 0.246;
-  const JsVarFloat vhi = 0.32;
+  const JsVarFloat vhi = 0.3144; // on some watches this is 100%, on others it's s a bit higher
 #elif defined(BANGLEJS_F18)
   const JsVarFloat vlo = 0.51;
   const JsVarFloat vhi = 0.62;
@@ -2169,7 +2213,7 @@ JsVarInt jswrap_banglejs_getBattery() {
   if (pc>100) pc=100;
   if (pc<0) pc=0;
   return pc;
-#else
+#else //!BAT_PIN_VOLTAGE || EMULATED
   return 50;
 #endif
 }
@@ -2240,6 +2284,7 @@ bool jswrap_banglejs_setHRMPower(bool isOn, JsVar *appId) {
   return false;
 #endif
 }
+
 /*JSON{
     "type" : "staticmethod",
     "class" : "Bangle",
@@ -2867,20 +2912,20 @@ NO_INLINE void jswrap_banglejs_init() {
   jsvUnLock(v);
 
 #if LCD_BPP==16
-  graphicsTheme.fg = 0xFFFF;
-  graphicsTheme.bg = 0;
-  graphicsTheme.fg2 = 0xFFFF;
-  graphicsTheme.bg2 = 0x0007;
-  graphicsTheme.fgH = 0xFFFF;
-  graphicsTheme.bgH = 0x02F7;
+  graphicsTheme.fg = GRAPHICS_COL_RGB_TO_16(255,255,255);
+  graphicsTheme.bg = GRAPHICS_COL_RGB_TO_16(0,0,0);
+  graphicsTheme.fg2 = GRAPHICS_COL_RGB_TO_16(255,255,255);
+  graphicsTheme.bg2 = GRAPHICS_COL_RGB_TO_16(0,0,63);
+  graphicsTheme.fgH = GRAPHICS_COL_RGB_TO_16(255,255,255);
+  graphicsTheme.bgH = GRAPHICS_COL_RGB_TO_16(0,95,190);
   graphicsTheme.dark = true;
 #else // still 16 bit, we just want it inverted
-  graphicsTheme.fg = GRAPHICS_COL_3_TO_16(0);
-  graphicsTheme.bg = GRAPHICS_COL_3_TO_16(7);
-  graphicsTheme.fg2 = GRAPHICS_COL_3_TO_16(1);
-  graphicsTheme.bg2 = GRAPHICS_COL_3_TO_16(3);
-  graphicsTheme.fgH = GRAPHICS_COL_3_TO_16(0);
-  graphicsTheme.bgH = GRAPHICS_COL_3_TO_16(3);
+  graphicsTheme.fg = GRAPHICS_COL_RGB_TO_16(0,0,0);
+  graphicsTheme.bg = GRAPHICS_COL_RGB_TO_16(255,255,255);
+  graphicsTheme.fg2 = GRAPHICS_COL_RGB_TO_16(0,0,0);
+  graphicsTheme.bg2 = GRAPHICS_COL_RGB_TO_16(191,255,255);
+  graphicsTheme.fgH = GRAPHICS_COL_RGB_TO_16(0,0,0);
+  graphicsTheme.bgH = GRAPHICS_COL_RGB_TO_16(0,255,255);
   graphicsTheme.dark = false;
 #endif
   //
@@ -3144,6 +3189,10 @@ NO_INLINE void jswrap_banglejs_init() {
     bangleFlags &= ~JSBF_COMPASS_ON;
     // ensure compass readings are reset to power-on state
     jswrap_banglejs_resetCompass();
+#endif
+    // Touchscreen gesture detection
+#if ESPR_BANGLE_UNISTROKE
+    unistroke_init();
 #endif
   } // firstRun
 
@@ -3749,11 +3798,12 @@ bool jswrap_banglejs_idle() {
         inactivityTimer = 0;
       }
     }
-    if (bangleTasks & JSBT_SWIPE_MASK) {
+    if (bangleTasks & JSBT_SWIPE) {
       JsVar *o[2] = {
-          jsvNewFromInteger((bangleTasks & JSBT_SWIPE_LEFT)?-1:((bangleTasks & JSBT_SWIPE_RIGHT)?1:0)),
-          jsvNewFromInteger((bangleTasks & JSBT_SWIPE_UP)?-1:((bangleTasks & JSBT_SWIPE_DOWN)?1:0)),
+          jsvNewFromInteger((touchGesture==TG_SWIPE_LEFT)?-1:((touchGesture==TG_SWIPE_RIGHT)?1:0)),
+          jsvNewFromInteger((touchGesture==TG_SWIPE_UP)?-1:((touchGesture==TG_SWIPE_DOWN)?1:0)),
       };
+      touchGesture = TG_SWIPE_NONE;
       jsiQueueObjectCallbacks(bangle, JS_EVENT_PREFIX"swipe", o, 2);
       jsvUnLockMany(2,o);
     }
@@ -3792,13 +3842,22 @@ bool jswrap_banglejs_idle() {
     lastTouchPts = touchPts;
   }
 #endif
+#if ESPR_BANGLE_UNISTROKE
+  if (bangleTasks & JSBT_STROKE) {
+    JsVar *o = unistroke_getEventVar();
+    if (o) {
+      jsiQueueObjectCallbacks(bangle, JS_EVENT_PREFIX"stroke", &o, 1);
+      jsvUnLock(o);
+    }
+  }
+#endif
   jsvUnLock(bangle);
   bangleTasks = JSBT_NONE;
 #if defined(LCD_CONTROLLER_LPM013M126) || defined(LCD_CONTROLLER_ST7789V) || defined(LCD_CONTROLLER_ST7735) || defined(LCD_CONTROLLER_GC9A01)
   // Automatically flip!
   JsVar *graphics = jsvObjectGetChild(execInfo.hiddenRoot, JS_GRAPHICS_VAR, 0);
   JsGraphics gfx;
-  if (graphics && graphicsGetFromVar(&gfx, graphics)) {
+  if (graphicsGetFromVar(&gfx, graphics)) {
     if (gfx.data.modMaxX >= gfx.data.modMinX) {
 #ifdef LCD_CONTROLLER_LPM013M126
       lcdMemLCD_flip(&gfx);
@@ -3952,6 +4011,7 @@ JsVar *jswrap_banglejs_dbg() {
   return o;
 }
 
+#ifndef EMULATED
 void _jswrap_banglejs_i2cWr(JshI2CInfo *i2c, int i2cAddr, JsVarInt reg, JsVarInt data) {
   unsigned char buf[2];
   buf[0] = (unsigned char)reg;
@@ -3977,6 +4037,7 @@ JsVar *_jswrap_banglejs_i2cRd(JshI2CInfo *i2c, int i2cAddr, JsVarInt reg, JsVarI
     return d;
   } else return jsvNewFromInteger(buf[0]);
 }
+#endif
 
 /*JSON{
     "type" : "staticmethod",
@@ -4107,6 +4168,46 @@ JsVar *jswrap_banglejs_compassRd(JsVarInt reg, JsVarInt cnt) {
 #endif
 }
 
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "Bangle",
+    "name" : "hrmWr",
+    "generate" : "jswrap_banglejs_hrmWr",
+    "params" : [
+      ["reg","int",""],
+      ["data","int",""]
+    ],
+    "ifdef" : "BANGLEJS_Q3"
+}
+Writes a register on the Heart rate monitor
+*/
+void jswrap_banglejs_hrmWr(JsVarInt reg, JsVarInt data) {
+#ifdef HRM_I2C
+  _jswrap_banglejs_i2cWr(HRM_I2C, HEARTRATE_ADDR, reg, data);
+#endif
+}
+
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "Bangle",
+    "name" : "hrmRd",
+    "generate" : "jswrap_banglejs_hrmRd",
+    "params" : [
+      ["reg","int",""],
+      ["cnt","int","If specified, returns an array of the given length (max 128). If not (or 0) it returns a number"]
+    ],
+    "return" : ["JsVar",""],
+    "ifdef" : "BANGLEJS"
+}
+Read a register on the Heart rate monitor
+*/
+JsVar *jswrap_banglejs_hrmRd(JsVarInt reg, JsVarInt cnt) {
+#ifdef HRM_I2C
+  return _jswrap_banglejs_i2cRd(HRM_I2C, HEARTRATE_ADDR, reg, cnt);
+#else
+  return 0;
+#endif
+}
 
 /*JSON{
     "type" : "staticmethod",
@@ -4133,7 +4234,6 @@ void jswrap_banglejs_ioWr(JsVarInt mask, bool on) {
 #endif
 }
 #endif
-
 
 /*JSON{
     "type" : "staticmethod",
@@ -4480,6 +4580,7 @@ static void jswrap_banglejs_periph_off() {
 #endif
   jshPinOutput(VIBRATE_PIN,0); // vibrate off
   //jswrap_banglejs_setLCDPower calls JS events (and sometimes timers), so avoid it and manually turn controller + backlight off:
+  jswrap_banglejs_setLocked(1); // disable touchscreen if we have one
   jswrap_banglejs_setLCDPowerController(0);
   jswrap_banglejs_pwrBacklight(0);
 #ifdef ACCEL_DEVICE_KX023
@@ -4771,7 +4872,7 @@ with `g.clear()`.
 */
 /*JSON{
     "type" : "staticmethod", "class" : "Bangle", "name" : "drawWidgets", "patch":true,
-    "generate_js" : "libs/js/banglejs/Bangle_drawWidgets_Q3.js",
+    "generate_js" : "libs/js/banglejs/Bangle_drawWidgets_Q3.min.js",
     "#if" : "defined(BANGLEJS) && defined(BANGLEJS_Q3)"
 }
 */
@@ -4791,7 +4892,7 @@ to select an application to launch.
     "type" : "staticmethod",
     "class" : "E",
     "name" : "showMenu",
-    "generate_js" : "libs/js/banglejs/E_showMenu.min.js",
+    "generate_js" : "libs/js/banglejs/E_showMenu_F18.min.js",
     "params" : [
       ["menu","JsVar","An object containing name->function mappings to to be used in a menu"]
     ],
@@ -4809,8 +4910,8 @@ var number = 50;
 // First menu
 var mainmenu = {
   "" : { "title" : "-- Main Menu --" },
-  "Backlight On" : function() { LED1.set(); },
-  "Backlight Off" : function() { LED1.reset(); },
+  "LED On" : function() { LED1.set(); },
+  "LED Off" : function() { LED1.reset(); },
   "Submenu" : function() { E.showMenu(submenu); },
   "A Boolean" : {
     value : boolean,
@@ -4848,7 +4949,7 @@ See http://www.espruino.com/graphical_menu for more detailed information.
     "generate_js" : "libs/js/banglejs/E_showMessage.min.js",
     "params" : [
       ["message","JsVar","A message to display. Can include newlines"],
-      ["title","JsVar","(optional) a title for the message"]
+      ["options","JsVar","(optional) a title for the message, or an object of options `{title:string, img:image_string}`"]
     ],
     "ifdef" : "BANGLEJS"
 }
@@ -4860,6 +4961,18 @@ Draws to the screen and returns immediately.
 ```
 E.showMessage("These are\nLots of\nLines","My Title")
 ```
+
+or to display an image as well as text:
+
+```
+E.showMessage("Lots of text will wrap automatically",{
+  title:"Warning",
+  img:atob("FBQBAfgAf+Af/4P//D+fx/n+f5/v+f//n//5//+f//n////3//5/n+P//D//wf/4B/4AH4A=")
+})
+```
+
+
+
 */
 /*JSON{
     "type" : "staticmethod",
@@ -4893,6 +5006,13 @@ E.showPrompt("How many fish\ndo you like?",{
 }).then(function(v) {
   print("You like "+v+" fish");
 });
+// Or
+E.showPrompt("Continue?", {
+  title:"Alert",
+  img:atob("FBQBAfgAf+Af/4P//D+fx/n+f5/v+f//n//5//+f//n////3//5/n+P//D//wf/4B/4AH4A=")}).then(function(v) {
+  if (v) print("'Yes' chosen");
+  else print("'No' chosen");
+});
 ```
 
 To remove the prompt, call `E.showPrompt()` with no arguments.
@@ -4901,10 +5021,54 @@ The second `options` argument can contain:
 
 ```
 {
-  title: "Hello",                      // optional Title
-  buttons : {"Ok":true,"Cancel":false} // list of button text & return value
+  title: "Hello",                       // optional Title
+  buttons : {"Ok":true,"Cancel":false}, // optional list of button text & return value
+  img: "image_string"                   // optional image string to draw
 }
 ```
+*/
+
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "E",
+    "name" : "showScroller",
+    "generate_js" : "libs/js/banglejs/E_showScroller.min.js",
+    "params" : [
+      ["options","JsVar","An object containing `{ h, c, draw, select }` (see below) "]
+    ],
+    "return" : ["JsVar", "A menu object with `draw`, `move` and `select` functions" ],
+    "ifdef" : "BANGLEJS"
+}
+Display a scrollable menu on the screen, and set up the buttons/touchscreen to navigate through it
+and select items.
+
+Supply an object containing:
+
+```
+{
+  h : 24, // height of each menu item in pixels
+  c : 10, // number of menu items
+  // a function to draw a menu item
+  draw : function(idx, rect) { ... }
+  // a function to call when the item is selected
+  select : function(idx) { ... }
+}
+```
+
+For example to display a list of numbers:
+
+```
+E.showScroller({
+  h : 40, c : 8,
+  draw : (idx, r) => {
+    g.setBgColor((idx&1)?"#fff":"#ccc").clearRect(r.x,r.y,r.x+r.w-1,r.y+r.h-1);
+    g.setFont("6x8:2").drawString("Item Number\n"+idx,r.x+10,r.y+4);
+  },
+  select : (idx) => console.log("You selected ", idx)
+});
+```
+
+To remove the scroller, just call `E.showScroller()`
 */
 
 /*JSON{
@@ -4922,6 +5086,12 @@ The second `options` argument can contain:
 /*JSON{
     "type" : "staticmethod", "class" : "E", "name" : "showPrompt", "patch":true,
     "generate_js" : "libs/js/banglejs/E_showPrompt_Q3.min.js",
+    "#if" : "defined(BANGLEJS) && defined(BANGLEJS_Q3)"
+}
+*/
+/*JSON{
+    "type" : "staticmethod", "class" : "E", "name" : "showScroller", "patch":true,
+    "generate_js" : "libs/js/banglejs/E_showScroller_Q3.min.js",
     "#if" : "defined(BANGLEJS) && defined(BANGLEJS_Q3)"
 }
 */
@@ -5024,7 +5194,7 @@ Currently supported interface types are:
 * 'clock' - called for clocks. Sets `Bangle.CLOCK=1` and allows a button to start the launcher
   * Bangle.js 1 BTN2 starts the launcher
   * Bangle.js 2 BTN1 starts the launcher
-* 'clockupdown' -
+* 'clockupdown' - called for clocks. Sets `Bangle.CLOCK=1`, allows a button to start the launcher, but also provides up/down functionality
   * Bangle.js 1 BTN2 starts the launcher, BTN1/BTN3 call `cb(-1)` and `cb(1)`
   * Bangle.js 2 BTN1 starts the launcher, touchscreen tap in top/bottom right hand side calls `cb(-1)` and `cb(1)`
 * `undefined` removes all user interaction code
@@ -5073,4 +5243,56 @@ of http://banglejs.com/apps
 void jswrap_banglejs_factoryReset() {
   jsfResetStorage();
   jsiStatus |= JSIS_TODO_FLASH_LOAD;
+}
+
+/*JSON{
+    "type" : "staticproperty",
+    "class" : "Bangle",
+    "name" : "appRect",
+    "generate" : "jswrap_banglejs_appRect",
+    "return" : ["JsVar","An object of the form `{x,y,w,h,x2,y2}`"],
+    "ifdef" : "BANGLEJS"
+}
+Returns the rectangle on the screen that is currently
+reserved for the app.
+*/
+JsVar *jswrap_banglejs_appRect() {
+  JsVar *o = jsvNewObject();
+  if (!o) return 0;
+  JsVar *graphics = jsvObjectGetChild(execInfo.hiddenRoot, JS_GRAPHICS_VAR, 0);
+  JsGraphics gfx;
+  if (!graphicsGetFromVar(&gfx, graphics)) {
+    gfx.data.width = LCD_WIDTH;
+    gfx.data.height = LCD_HEIGHT;
+  }
+  jsvUnLock(graphics);
+
+  JsVar *widgetsVar = jsvObjectGetChild(execInfo.root,"WIDGETS",0);
+  int top = 0, btm = 0; // size of various widget areas
+  // check all widgets and see if any are in the top or bottom areas,
+  // set top/btm accordingly
+  if (jsvIsObject(widgetsVar)) {
+    JsvObjectIterator it;
+    jsvObjectIteratorNew(&it, widgetsVar);
+    while (jsvObjectIteratorHasValue(&it)) {
+      JsVar *widget = jsvObjectIteratorGetValue(&it);
+      JsVar *area = jsvObjectGetChild(widget, "area", 0);
+      if (jsvIsString(area)) {
+        char a = jsvGetCharInString(area, 0);
+        if (a=='t') top=24;
+        if (a=='b') btm=24;
+      }
+      jsvUnLock2(area,widget);
+      jsvObjectIteratorNext(&it);
+    }
+    jsvObjectIteratorFree(&it);
+  }
+  jsvUnLock(widgetsVar);
+  jsvObjectSetChildAndUnLock(o,"x",jsvNewFromInteger(0));
+  jsvObjectSetChildAndUnLock(o,"y",jsvNewFromInteger(top));
+  jsvObjectSetChildAndUnLock(o,"w",jsvNewFromInteger(gfx.data.width));
+  jsvObjectSetChildAndUnLock(o,"h",jsvNewFromInteger(gfx.data.height-(top+btm)));
+  jsvObjectSetChildAndUnLock(o,"x2",jsvNewFromInteger(gfx.data.width-1));
+  jsvObjectSetChildAndUnLock(o,"y2",jsvNewFromInteger(gfx.data.height-(1+btm)));
+  return o;
 }
