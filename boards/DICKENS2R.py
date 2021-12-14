@@ -19,10 +19,10 @@ info = {
  'boardname' : "DICKENS",
  'link' :  [ "" ],
  'espruino_page_link' : '',
-# 'default_console' : "EV_BLUETOOTH",
- 'default_console' : "EV_SERIAL1",
- 'default_console_rx' : "D44",
- 'default_console_tx' : "D47",
+ 'default_console' : "EV_BLUETOOTH",
+# 'default_console' : "EV_SERIAL1",
+# 'default_console_rx' : "D44",
+# 'default_console_tx' : "D47",
  'default_console_baudrate' : "9600",
  'variables' : 5000, # How many variables are allocated for Espruino to use. RAM will be overflowed if this number is too high and code won't compile.
  'bootloader' : 1,
@@ -74,6 +74,7 @@ info = {
      'SOURCES += libs/banglejs/dickens_storage_default.c',
      'DEFINES += -DESPR_STORAGE_INITIAL_CONTENTS=1',
      'DEFINES += -DWRITE_INITIAL_STORAGE_IF_EMPTY',
+     'DEFINES += -DESPR_USE_STORAGE_CACHE=32', # Add a 32 entry cache to speed up finding files
      'JSMODULESOURCES += libs/js/banglejs/locale.min.js',
      'DEFINES += -DBANGLEJS',
      'DEFINES += -DESPR_NO_LOADING_SCREEN', # disable 'loading...' message when switching apps
@@ -113,8 +114,8 @@ devices = { # Buttons rotated 180 degrees compared to original Dickens2 device
   'BTN3' : { 'pin' : 'D46', 'pinstate' : 'IN_PULLDOWN' }, # BL Pin negated in software
   'BTN4' : { 'pin' : 'D28', 'pinstate' : 'IN_PULLDOWN' }, # TL Pin negated in software
 
-  'RX_PIN_NUMBER' : { 'pin' : 'D44'},
-  'TX_PIN_NUMBER' : { 'pin' : 'D47'},
+#  'RX_PIN_NUMBER' : { 'pin' : 'D44'},
+#  'TX_PIN_NUMBER' : { 'pin' : 'D47'},
 
   'VIBRATE' : { 'pin' : 'D6' }, # Pin negated in software
   'LCD' : {
