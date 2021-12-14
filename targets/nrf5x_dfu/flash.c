@@ -364,8 +364,8 @@ void flashCheckFile(uint32_t fileAddr) {
     // Not set - silently exit
     return;
   }
-  lcd_println("FLASH HEADER");
-  lcd_print_hex(header.address); lcd_println(" ADDR");
+  lcd_print_hex(fileAddr); lcd_println(" FILE ADDR");
+  lcd_print_hex(header.address); lcd_println(" HEADER ADDR");
   lcd_print_hex(header.size); lcd_println(" SIZE");
   lcd_print_hex(header.CRC); lcd_println(" CRC");
   lcd_print_hex(header.version); lcd_println(" VERSION");
@@ -373,8 +373,8 @@ void flashCheckFile(uint32_t fileAddr) {
   // Calculate CRC
   lcd_println("CRC TEST...");
   unsigned char buf[256];
-  int size = header.size;
-  int inaddr = fileAddr + sizeof(FlashHeader);
+  unsigned int size = header.size;
+  uint32_t inaddr = fileAddr + sizeof(FlashHeader);
   uint32_t crc = 0;
   while (size>0) {
     unsigned int l = size;
@@ -387,10 +387,9 @@ void flashCheckFile(uint32_t fileAddr) {
   bool isEqual = false;
   if (crc != header.CRC) {
     // CRC is wrong - exits
-    lcd_println("CRC MISMATCH");
-    lcd_println("NOT FLASHING");
-    lcd_print_hex(crc); lcd_println("");lcd_println("");
-    for (volatile int i=0;i<5000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
+    lcd_print_hex(crc); lcd_println(" CRC");
+    lcd_println("CRC MISMATCH. NOT FLASHING");
+    for (volatile int i=0;i<50000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
     // don't flash if the CRC doesn't match
     return;
   } else {
