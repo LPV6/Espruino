@@ -398,7 +398,7 @@ void flashCheckFile(uint32_t fileAddr) {
     lcd_println("TESTING...");
     isEqual = flashEqual(header, fileAddr);
   }
-  lcd_println("REMOVE HEADER.");
+  lcd_println("REMOVE HEADER");
   // Now erase the 'name' from the file header
   // which basically erases the file, so we don't
   // get into a boot loop
@@ -418,7 +418,7 @@ void flashCheckFile(uint32_t fileAddr) {
   // assume it's erased...
 
   if (!isEqual) {
-    lcd_println("FIRMWARE DIFFERENT.");
+    lcd_println("FW DIFFERENT");
     lcd_println("FLASHING...");
 
     xlcd_rect(60,180,180,180,true);
@@ -436,7 +436,7 @@ void flashCheckFile(uint32_t fileAddr) {
     while (true) NVIC_SystemReset();
 #endif
   } else {
-    lcd_println("BINARY MATCHES.");
+    lcd_println("BINARY MATCHES");
   }
 }
 
