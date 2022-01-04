@@ -73,7 +73,7 @@ info = {
      'SOURCES += libs/misc/stepcount.c',
      'SOURCES += libs/banglejs/dickens_storage_default.c',
      'DEFINES += -DESPR_STORAGE_INITIAL_CONTENTS=1',
-     'DEFINES += -DWRITE_INITIAL_STORAGE_IF_EMPTY',
+#     'DEFINES += -DWRITE_INITIAL_STORAGE_IF_EMPTY',
      'DEFINES += -DESPR_USE_STORAGE_CACHE=32', # Add a 32 entry cache to speed up finding files
      'JSMODULESOURCES += libs/js/banglejs/locale.min.js',
      'DEFINES += -DBANGLEJS',
@@ -98,10 +98,10 @@ chip = {
   'adc' : 1,
   'dac' : 0,
   'saved_code' : {
-    'address' : ((246 - 20) * 4096), # Bootloader takes pages 248-255, FS takes 246-247
+    'address' : ((246 - 80) * 4096), # Bootloader takes pages 248-255, FS takes 246-247
     'page_size' : 4096,
-    'pages' : 20,
-    'flash_available' : 1024 - ((38 + 8 + 2 + 20)*4), # Softdevice uses 0x26=38 pages of flash, bootloader 8, FS 2, code 20. Each page is 4 kb.
+    'pages' : 80,
+    'flash_available' : 1024 - ((38 + 8 + 2 + 80)*4), # Softdevice uses 0x26=38 pages of flash, bootloader 8, FS 2, code 40. Each page is 4 kb.
 
     'address2' : 0x60000000, # put this in external spiflash (see below)
     'pages2' : 1024, # Entire 4MB of external flash
