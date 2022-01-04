@@ -1971,7 +1971,8 @@ int jshSPISend(IOEventFlags device, int data) {
   uint32_t err_code = nrf_drv_spi_transfer(&spi0, &tx, 1, &rx, 1);
   if (err_code != NRF_SUCCESS) {
     spi0Sending = false;
-    jsExceptionHere(JSET_INTERNALERROR, "SPI Send Error %d\n", err_code);
+//    jsExceptionHere(JSET_INTERNALERROR, "SPI Send Error %d\n", err_code);
+    jsExceptionHere(JSET_INTERNALERROR, "SPI Send Error %d with data=%d\n", err_code, data);
   }
   jshSPIWait(device);
   return rx;
@@ -2033,7 +2034,8 @@ bool jshSPISendMany(IOEventFlags device, unsigned char *tx, unsigned char *rx, s
 #endif
   if (err_code != NRF_SUCCESS) {
     spi0Sending = false;
-    jsExceptionHere(JSET_INTERNALERROR, "SPI Send Error %d\n", err_code);
+//    jsExceptionHere(JSET_INTERNALERROR, "SPI Send Error %d\n", err_code);
+    jsExceptionHere(JSET_INTERNALERROR, "SPI Send Error %d when sending %d bytes\n", err_code, count);
     return false;
   }
   if (!callback) {

@@ -846,7 +846,7 @@ void jsiSemiInit(bool autoLoad) {
           "|   \\_ _/ __| |/ / __| \\| / __| \n"
           "| |  | | (__|   <| __|    \\__ \\ \n"
           "|___/___\\___|_|\\_\\___|_|\\_|___/ \n"                                
-          ""JS_VERSION" (c) 2021 G.Williams & TWC\n"
+          ""JS_VERSION" © 2022 G.Williams & TWC\n"
 #else    
           // rectangles @ http://www.network-science.de/ascii/
           "\n"
@@ -855,7 +855,7 @@ void jsiSemiInit(bool autoLoad) {
           "|  __|_ -| . |  _| | | |   | . |\n"
           "|____|___|  _|_| |___|_|_|_|___|\n"
           "         |_| espruino.com\n"
-          " "JS_VERSION" (c) 2021 G.Williams\n"
+          " "JS_VERSION" © 2022 G.Williams\n"
         // Point out about donations - but don't bug people
         // who bought boards that helped Espruino
 #if !defined(PICO) && !defined(ESPRUINOBOARD) && !defined(ESPRUINOWIFI) && !defined(PUCKJS) && !defined(PIXLJS) && !defined(BANGLEJS) && !defined(EMSCRIPTEN)

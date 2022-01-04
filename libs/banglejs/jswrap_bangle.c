@@ -3068,7 +3068,6 @@ NO_INLINE void jswrap_banglejs_init() {
     jswrap_graphics_drawCString(&gfx,20,y+10,"---------------");
     jswrap_graphics_drawCString(&gfx,20,y+30,JS_VERSION);
     jswrap_graphics_drawCString(&gfx,20,y+40,addrStr);
-    jswrap_graphics_drawCString(&gfx,20,y+55,"Running boot checks...");
 #else
     int y=(LCD_HEIGHT-h)/2;
     jsvUnLock2(jswrap_graphics_drawImage(graphics,img,(LCD_WIDTH-w)/2,y,NULL),img);
