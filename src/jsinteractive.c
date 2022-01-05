@@ -791,9 +791,13 @@ void jsiSoftKill() {
   jsiStatus &= ~JSIS_FIRST_BOOT; // this is no longer the first boot!
 }
 
-void jsiSemiInit(bool autoLoad) {
+/** Called as part of initialisation - loads boot code.
+ *
+ * loadedFilename is set if we're loading a file, and we can use that for setting the __FILE__ variable
+ */
+void jsiSemiInit(bool autoLoad, JsfFileName *loadedFilename) {
+  // Set up execInfo.root/etc
   jspInit();
-
   // Set state
   interruptedDuringEvent = false;
   // Set defaults
@@ -801,6 +805,9 @@ void jsiSemiInit(bool autoLoad) {
 #ifndef SAVE_ON_FLASH
   pinBusyIndicator = DEFAULT_BUSY_PIN_INDICATOR;
 #endif
+  // Set __FILE__ if we have a filename available
+  if (loadedFilename)
+    jsvObjectSetChildAndUnLock(execInfo.root, "__FILE__", jsfVarFromName(*loadedFilename));
 
   /* If flash contains any code, then we should
      Try and load from it... */
@@ -892,7 +899,7 @@ void jsiInit(bool autoLoad) {
   jsnSanityTest();
 #endif
 
-  jsiSemiInit(autoLoad);
+  jsiSemiInit(autoLoad, NULL/* no filename */);
   // just in case, update the busy indicator
   jsiSetBusy(BUSY_INTERACTIVE, false);
 }
@@ -2234,7 +2241,7 @@ void jsiIdle() {
       jsvKill();
       jshReset();
       jsvInit(0);
-      jsiSemiInit(false); // don't autoload
+      jsiSemiInit(false, NULL/* no filename */); // don't autoload
       jsiStatus &= (JsiStatus)~JSIS_TODO_RESET;
     }
     if ((s&JSIS_TODO_FLASH_SAVE) == JSIS_TODO_FLASH_SAVE) {
@@ -2260,13 +2267,11 @@ void jsiIdle() {
         jsvKill();
         jshReset();
         jsvInit(0);
-        jsiSemiInit(false); // don't autoload code
+        jsiSemiInit(false, &filename); // don't autoload code
         // load the code we specified
         JsVar *code = jsfReadFile(filename,0,0);
-        if (code) {
-          jsvObjectSetChildAndUnLock(execInfo.root, "__FILE__", jsfVarFromName(filename));
+        if (code)
           jsvUnLock2(jspEvaluateVar(code,0,0), code);
-        }
       } else {
         jsiSoftKill();
         jspSoftKill();

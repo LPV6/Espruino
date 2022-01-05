@@ -1,4 +1,8 @@
             Bangle.js: Enable the Bangle.on('tap') event from the accelerometer by default
+            nRF52840: Flow control XOFF is now sent at only 3/8th full - delays in BLE mean we can sometimes fill our 1k input buffer otherwise
+            __FILE__ is now set correctly for apps (fixes 2v11 regression)
+
+     2v11 : Bangle.js: Enable the Bangle.on('tap') event from the accelerometer by default
             Bangle.js: revert to (better) Kionix default thresholds for tap detect
             Bangle.js 2: When wake on touch is enabled, use a single tap on the front of the device for wakeup
             Bangle.js: Display 'checking storage' message on first boot to alert users to slight delay
@@ -47,8 +51,6 @@
             nRF52: swap getSerial bytes around so device ID string matches nrfjprog
             Bangle.js2: bootloader can now flash firmware from a file in Storage
             Bangle.js2: Add second Storage area in internal flash for fast access, memory-mapped files
-<<<<<<< HEAD
-=======
             Fix unhandled reject of a previously resolved promise (fix #1433)
             Bangle.js: E.showMessage/showPrompt can now display images via optional img argument
                        E.showMessage/showPrompt handle padding correctly if no widgets are displayed
@@ -104,7 +106,6 @@
             Bangle.js: Fix for previous SPI flash write verify when <4 bytes written
             Bangle.js2: Add write protection for bootloader and softdevice to avoid accidental bricking
             Bangle.js2: Bootloader now attempts multiple times to initialise ext flash, and waits longer (fix fw update app issues)
->>>>>>> master
             
      2v10 : Bangle.js: Improved HRM calculations - swapped autocorrelation for bandpass filter
             Bangle.js: Significantly improved step counting algorithm using bandpass filter (fix #1846)
