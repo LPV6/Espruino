@@ -3281,13 +3281,17 @@ NO_INLINE void jswrap_banglejs_init() {
   }
 
 #ifdef DICKENS
-  /* If it's the first time we've started and Storage is empty,
-  run the self test code */
+  // If it's the first time we've started and Storage is empty,
   if (firstRun && jsfIsStorageEmpty()) {
+
+// Write the initial storage contents (and reset) if WRITE_INITIAL_STORAGE_IF_EMPTY is defined
   #ifdef WRITE_INITIAL_STORAGE_IF_EMPTY
+    jsvUnLock(jspEvaluate("g.setFont('6x8').drawString('WRITING FLASH STORAGE...',20,171).flip();\n",true));
     jsfWriteInitialStorage();
+    jsvUnLock(jspEvaluate("E.reboot();\n",true));
   #else
-/*
+ /* 
+  Leave storage empty and run the self test code if WRITE_INITIAL_STORAGE_IF_EMPTY is not defined
 
 //-------------------------------------------
 // Bigger text, show buttons and connection status only
