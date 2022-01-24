@@ -389,7 +389,7 @@ void flashCheckFile(uint32_t fileAddr) {
     // CRC is wrong - exits
     lcd_print_hex(crc); lcd_println(" CRC");
     lcd_println("CRC MISMATCH. NOT FLASHING");
-    for (volatile int i=0;i<50000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
+    for (volatile int i=0;i<5000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
     // don't flash if the CRC doesn't match
     return;
   } else {

@@ -2557,6 +2557,23 @@ truncated : bool // the 'value' was too big to be sent completely
 /*JSON{
     "type" : "staticmethod",
     "class" : "NRF",
+    "name" : "ancsIsActive",
+    "ifdef" : "NRF52_SERIES",
+    "generate" : "jswrap_ble_ancsIsActive",
+    "params" : [ ],
+    "return" : ["bool", "True if Apple Notification Center Service (ANCS) has been initialised and is active" ]
+}
+Check if Apple Notification Center Service (ANCS) is currently active on the BLE connection
+*/
+bool jswrap_ble_ancsIsActive() {
+#if ESPR_BLUETOOTH_ANCS
+  return ((bleStatus & BLE_ANCS_INITED) && ble_ancs_is_active());
+#endif
+}
+
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "NRF",
     "name" : "ancsAction",
     "ifdef" : "NRF52_SERIES",
     "generate" : "jswrap_ble_ancsAction",
@@ -2659,6 +2676,22 @@ JsVar *jswrap_ble_ancsGetAppInfo(JsVar *appId) {
   return promise;
 }
 
+/*JSON{
+    "type" : "staticmethod",
+    "class" : "NRF",
+    "name" : "amsIsActive",
+    "ifdef" : "NRF52_SERIES",
+    "generate" : "jswrap_ble_amsIsActive",
+    "params" : [ ],
+    "return" : ["bool", "True if Apple Media Service (AMS) has been initialised and is active" ]
+}
+Check if Apple Media Service (AMS) is currently active on the BLE connection
+*/
+bool jswrap_ble_amsIsActive() {
+#if ESPR_BLUETOOTH_ANCS
+  return ((bleStatus & BLE_ANCS_INITED) && ble_ams_is_active());
+#endif
+}
 
 /*JSON{
     "type" : "staticmethod",
@@ -2687,8 +2720,8 @@ Get Apple Media Service (AMS) info for the current media player.
 JsVar *jswrap_ble_amsGetPlayerInfo(JsVar *id) {
   JsVar *promise = 0;
 #if ESPR_BLUETOOTH_ANCS
-  if (!(bleStatus & BLE_ANCS_INITED) || !ble_ancs_is_active()) {
-    jsExceptionHere(JSET_ERROR, "ANCS not active");
+  if (!(bleStatus & BLE_ANCS_INITED) || !ble_ams_is_active()) {
+    jsExceptionHere(JSET_ERROR, "AMS not active");
     return 0;
   }
   ble_ams_c_player_attribute_id_val_t cmd;
@@ -2725,8 +2758,8 @@ Get Apple Media Service (AMS) info for the currently-playing track
 JsVar *jswrap_ble_amsGetTrackInfo(JsVar *id) {
   JsVar *promise = 0;
 #if ESPR_BLUETOOTH_ANCS
-  if (!(bleStatus & BLE_ANCS_INITED) || !ble_ancs_is_active()) {
-    jsExceptionHere(JSET_ERROR, "ANCS not active");
+  if (!(bleStatus & BLE_ANCS_INITED) || !ble_ams_is_active()) {
+    jsExceptionHere(JSET_ERROR, "AMS not active");
     return 0;
   }
   ble_ams_c_track_attribute_id_val_t cmd;

@@ -849,11 +849,9 @@ void jsiSemiInit(bool autoLoad, JsfFileName *loadedFilename) {
 #endif
 #if (defined(DICKENS) || defined(EMSCRIPTEN_DICKENS))
           "\n"
-          " ___ ___ ___ _  _____ _  _ ___  \n"
-          "|   \\_ _/ __| |/ / __| \\| / __| \n"
-          "| |  | | (__|   <| __|    \\__ \\ \n"
-          "|___/___\\___|_|\\_\\___|_|\\_|___/ \n"                                
-          ""JS_VERSION" © 2022 G.Williams & TWC\n"
+          "------------------------\n"
+          "PROJECT DICKENS "JS_VERSION"\n"                                
+          "© 2022 G.Williams & TWC\n"
 #else    
           // rectangles @ http://www.network-science.de/ascii/
           "\n"
