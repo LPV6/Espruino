@@ -1316,7 +1316,7 @@ NO_INLINE JsVar *jspeFactorArray() {
 NO_INLINE void jspEnsureIsPrototype(JsVar *instanceOf, JsVar *prototypeName) {
   if (!prototypeName) return;
   JsVar *prototypeVar = jsvSkipName(prototypeName);
-  if (!jsvIsObject(prototypeVar)) {
+  if (!(jsvIsObject(prototypeVar) || jsvIsFunction(prototypeVar))) {
     if (!jsvIsUndefined(prototypeVar))
       jsExceptionHere(JSET_TYPEERROR, "Prototype should be an object, got %t", prototypeVar);
     jsvUnLock(prototypeVar);
@@ -1438,7 +1438,8 @@ NO_INLINE JsVar *jspeAddNamedFunctionParameter(JsVar *funcVar, JsVar *name) {
   if (!funcVar) funcVar = jsvNewWithFlags(JSV_FUNCTION);
   char buf[JSLEX_MAX_TOKEN_LENGTH+1];
   buf[0] = '\xFF';
-  jsvGetString(name, &buf[1], JSLEX_MAX_TOKEN_LENGTH);
+  size_t l = jsvGetString(name, &buf[1], JSLEX_MAX_TOKEN_LENGTH);
+  buf[l+1] = 0; // zero terminate since jsvGetString doesn't add one
   JsVar *param = jsvAddNamedChild(funcVar, 0, buf);
   jsvMakeFunctionParameter(param);
   jsvUnLock(param);
@@ -2396,6 +2397,7 @@ NO_INLINE JsVar *jspeStatementFor() {
     return 0;
   }
   execInfo.execute &= (JsExecFlags)~EXEC_FOR_INIT;
+#ifndef SAVE_ON_FLASH_EXTREME
   if (lex->tk == LEX_R_IN || lex->tk == LEX_R_OF) {
     bool isForOf = lex->tk == LEX_R_OF;
     // for (i in array)  or   for (i of array)
@@ -2492,6 +2494,9 @@ NO_INLINE JsVar *jspeStatementFor() {
     jslCharPosFree(&forBodyEnd);
 
     jsvUnLock2(forStatement, array);
+#else // SAVE_ON_FLASH_EXTREME
+  if (false) {
+#endif // SAVE_ON_FLASH_EXTREME
   } else { // ----------------------------------------------- NORMAL FOR LOOP
 #ifdef JSPARSE_MAX_LOOP_ITERATIONS
     int loopCount = JSPARSE_MAX_LOOP_ITERATIONS;
