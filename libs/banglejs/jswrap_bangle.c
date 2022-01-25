@@ -2585,6 +2585,7 @@ bool jswrap_banglejs_setBarometerPower(bool isOn, JsVar *appId) {
         barometer_c21 = twosComplement(((unsigned short)buf[14] << 8) | (unsigned short)buf[15], 16);
         barometer_c30 = twosComplement(((unsigned short)buf[16] << 8) | (unsigned short)buf[17], 16);
       }
+#if PRESSURE_DEVICE_BMP280!=0
       if (PRESSURE_DEVICE_BMP280) {
         jswrap_banglejs_barometerWr(0xF4, 0x27); // ctrl_meas_reg - normal mode, no pressure/temp oversample
         jswrap_banglejs_barometerWr(0xF5, 0xA0); // config_reg - 1s standby, no filter, I2C
@@ -2600,12 +2601,15 @@ bool jswrap_banglejs_setBarometerPower(bool isOn, JsVar *appId) {
         for (i=1;i<9;i++)
           barometerDP[i] = twosComplement(((int)buf[(i*2)+7] << 8) | (int)buf[(i*2)+6], 16);
       }
+#endif // PRESSURE_DEVICE_BMP280
     } // wasOn
   } else { // !isOn -> turn off
     if (PRESSURE_DEVICE_SPL06_007)
       jswrap_banglejs_barometerWr(SPL06_MEASCFG, 0); // Barometer off
+#if PRESSURE_DEVICE_BMP280!=0
     if (PRESSURE_DEVICE_BMP280)
       jswrap_banglejs_barometerWr(0xF4, 0); // Barometer off
+#endif
   }
   return isOn;
 #else // PRESSURE_DEVICE
@@ -3246,10 +3250,12 @@ NO_INLINE void jswrap_banglejs_init() {
       buf[0]=SPL06_RESET; buf[1]=0x89;
       jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true); // SOFT_RST
     }
+#if PRESSURE_DEVICE_BMP280!=0
     if (PRESSURE_DEVICE_BMP280) {
       buf[0]=0xE0; buf[1]=0xB6;
       jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, true); // reset
     }
+#endif
     bangleFlags &= ~JSBF_BAROMETER_ON;
 #endif // PRESSURE_DEVICE
 
@@ -4406,6 +4412,7 @@ bool jswrap_banglejs_barometerPoll() {
     // TODO: temperature corrected altitude?
     return true;
   }
+#if PRESSURE_DEVICE_BMP280!=0
   if (PRESSURE_DEVICE_BMP280) {
     unsigned char buf[8];
     buf[0] = 0xF7; jsi2cWrite(PRESSURE_I2C, PRESSURE_ADDR, 1, buf, false); // READ_A
@@ -4447,6 +4454,7 @@ bool jswrap_banglejs_barometerPoll() {
     // TODO: temperature corrected altitude?
     return true;
   }
+#endif //PRESSURE_DEVICE_BMP280
   return false;
 }
 
