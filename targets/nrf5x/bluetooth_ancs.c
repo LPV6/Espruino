@@ -46,6 +46,13 @@ NRF.setAdvertising({})
 E.on('ANCS',a=>{
   print("ANCS", E.toJS(a));
 });
+// get message contents
+NRF.ancsGetNotificationInfo( 1 ).then(a=>print("Notify",E.toJS(a))); // 1==id
+// Get app name.
+NRF.ancsGetAppInfo("com.google.hangouts").then(a=>print("App",E.toJS(a)));
+
+
+NRF.setServices({},{ams:true})
 E.on('AMS',a=>{
   //print("AMS", E.toJS(a));
   // eg. {id:"title",value:"Track Name too lon",truncated:true}
@@ -56,10 +63,6 @@ E.on('AMS',a=>{
     print(a.id, a.value);
 });
 
-// get message contents
-NRF.ancsGetNotificationInfo( 1 ).then(a=>print("Notify",E.toJS(a))); // 1==id
-// Get app name.
-NRF.ancsGetAppInfo("com.google.hangouts").then(a=>print("App",E.toJS(a)));
 
 // music control
 NRF.amsCommand("pause")
@@ -575,90 +578,93 @@ void ble_ancs_on_ble_evt(const ble_evt_t * p_ble_evt)
 
 /**@brief Function for initializing the Apple Notification Center Service.
  */
-static void services_init(void)
-{
-    ble_ancs_c_init_t ancs_init_obj;
-    ble_ams_c_init_t ams_c_init;
+static void services_init(void) {
     ret_code_t        ret;
 
-    memset(&ancs_init_obj, 0, sizeof(ancs_init_obj));
-    ble_ancs_clear_attr();
-    ble_ancs_clear_app_attr();
+    if (bleStatus & BLE_ANCS_INITED) {
+      ble_ancs_c_init_t ancs_init_obj;
+      memset(&ancs_init_obj, 0, sizeof(ancs_init_obj));
+      ble_ancs_clear_attr();
+      ble_ancs_clear_app_attr();
 
-    ret = nrf_ble_ancs_c_app_attr_add(&m_ancs_c,
-                                  BLE_ANCS_APP_ATTR_ID_DISPLAY_NAME,
-                                  (uint8_t*)m_attr_appname,
-                                  sizeof(m_attr_appname));
-    APP_ERROR_CHECK(ret);
+      ret = nrf_ble_ancs_c_app_attr_add(&m_ancs_c,
+                                    BLE_ANCS_APP_ATTR_ID_DISPLAY_NAME,
+                                    (uint8_t*)m_attr_appname,
+                                    sizeof(m_attr_appname));
+      APP_ERROR_CHECK(ret);
 
-    ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
-                                  BLE_ANCS_NOTIF_ATTR_ID_APP_IDENTIFIER,
-                                  (uint8_t*)m_attr_appid,
-                                  sizeof(m_attr_appid));
-    APP_ERROR_CHECK(ret);
+      ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
+                                    BLE_ANCS_NOTIF_ATTR_ID_APP_IDENTIFIER,
+                                    (uint8_t*)m_attr_appid,
+                                    sizeof(m_attr_appid));
+      APP_ERROR_CHECK(ret);
 
-    // ret = nrf_ble_ancs_c_app_attr_add(&m_ancs_c,
-    //                                   BLE_ANCS_APP_ATTR_ID_DISPLAY_NAME,
-    //                                   (uint8_t*)m_attr_disp_name,
-    //                                   sizeof(m_attr_disp_name));
-    // APP_ERROR_CHECK(ret);
+      // ret = nrf_ble_ancs_c_app_attr_add(&m_ancs_c,
+      //                                   BLE_ANCS_APP_ATTR_ID_DISPLAY_NAME,
+      //                                   (uint8_t*)m_attr_disp_name,
+      //                                   sizeof(m_attr_disp_name));
+      // APP_ERROR_CHECK(ret);
 
-    ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
-                                  BLE_ANCS_NOTIF_ATTR_ID_TITLE,
-                                  (uint8_t*)m_attr_title,
-                                  sizeof(m_attr_title));
-    APP_ERROR_CHECK(ret);
+      ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
+                                    BLE_ANCS_NOTIF_ATTR_ID_TITLE,
+                                    (uint8_t*)m_attr_title,
+                                    sizeof(m_attr_title));
+      APP_ERROR_CHECK(ret);
 
-    ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
-                                  BLE_ANCS_NOTIF_ATTR_ID_MESSAGE,
-                                  (uint8_t*)m_attr_message,
-                                  sizeof(m_attr_message));
-    APP_ERROR_CHECK(ret);
+      ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
+                                    BLE_ANCS_NOTIF_ATTR_ID_MESSAGE,
+                                    (uint8_t*)m_attr_message,
+                                    sizeof(m_attr_message));
+      APP_ERROR_CHECK(ret);
 
-    ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
-                                  BLE_ANCS_NOTIF_ATTR_ID_SUBTITLE,
-                                  (uint8_t*)m_attr_subtitle,
-                                  sizeof(m_attr_subtitle));
-    APP_ERROR_CHECK(ret);
+      ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
+                                    BLE_ANCS_NOTIF_ATTR_ID_SUBTITLE,
+                                    (uint8_t*)m_attr_subtitle,
+                                    sizeof(m_attr_subtitle));
+      APP_ERROR_CHECK(ret);
 
-    ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
-                                  BLE_ANCS_NOTIF_ATTR_ID_MESSAGE_SIZE,
-                                  (uint8_t*)m_attr_message_size,
-                                  sizeof(m_attr_message_size));
-    APP_ERROR_CHECK(ret);
+      ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
+                                    BLE_ANCS_NOTIF_ATTR_ID_MESSAGE_SIZE,
+                                    (uint8_t*)m_attr_message_size,
+                                    sizeof(m_attr_message_size));
+      APP_ERROR_CHECK(ret);
 
-    ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
-                                  BLE_ANCS_NOTIF_ATTR_ID_DATE,
-                                  (uint8_t*)m_attr_date,
-                                  sizeof(m_attr_date));
-    APP_ERROR_CHECK(ret);
+      ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
+                                    BLE_ANCS_NOTIF_ATTR_ID_DATE,
+                                    (uint8_t*)m_attr_date,
+                                    sizeof(m_attr_date));
+      APP_ERROR_CHECK(ret);
 
-    ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
-                                  BLE_ANCS_NOTIF_ATTR_ID_POSITIVE_ACTION_LABEL,
-                                  (uint8_t*)m_attr_posaction,
-                                  sizeof(m_attr_posaction));
-    APP_ERROR_CHECK(ret);
+      ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
+                                    BLE_ANCS_NOTIF_ATTR_ID_POSITIVE_ACTION_LABEL,
+                                    (uint8_t*)m_attr_posaction,
+                                    sizeof(m_attr_posaction));
+      APP_ERROR_CHECK(ret);
 
-    ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
-                                  BLE_ANCS_NOTIF_ATTR_ID_NEGATIVE_ACTION_LABEL,
-                                  (uint8_t*)m_attr_negaction,
-                                  sizeof(m_attr_negaction));
-    APP_ERROR_CHECK(ret);
+      ret = nrf_ble_ancs_c_attr_add(&m_ancs_c,
+                                    BLE_ANCS_NOTIF_ATTR_ID_NEGATIVE_ACTION_LABEL,
+                                    (uint8_t*)m_attr_negaction,
+                                    sizeof(m_attr_negaction));
+      APP_ERROR_CHECK(ret);
 
-    ancs_init_obj.evt_handler   = on_ancs_c_evt;
-    ancs_init_obj.error_handler = apple_notification_error_handler;
+      ancs_init_obj.evt_handler   = on_ancs_c_evt;
+      ancs_init_obj.error_handler = apple_notification_error_handler;
 
-    ret = ble_ancs_c_init(&m_ancs_c, &ancs_init_obj);
-    APP_ERROR_CHECK(ret);
+      ret = ble_ancs_c_init(&m_ancs_c, &ancs_init_obj);
+      APP_ERROR_CHECK(ret);
+    }
 
-    // Init the Apple Media Service client module.
-    memset(&ams_c_init, 0, sizeof(ams_c_init));
+    if (bleStatus & BLE_AMS_INITED) {
+      ble_ams_c_init_t ams_c_init;
+      // Init the Apple Media Service client module.
+      memset(&ams_c_init, 0, sizeof(ams_c_init));
 
-    ams_c_init.evt_handler   = on_ams_c_evt;
-    ams_c_init.error_handler = apple_media_error_handler;
+      ams_c_init.evt_handler   = on_ams_c_evt;
+      ams_c_init.error_handler = apple_media_error_handler;
 
-    ret = ble_ams_c_init(&m_ams_c, &ams_c_init);
-    APP_ERROR_CHECK(ret);
+      ret = ble_ams_c_init(&m_ams_c, &ams_c_init);
+      APP_ERROR_CHECK(ret);
+    }
 }
 
 
@@ -673,8 +679,10 @@ static void services_init(void)
 static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
 {
   NRF_LOG_INFO("db_disc_handler %d\n", p_evt->evt_type);
-  ble_ancs_c_on_db_disc_evt(&m_ancs_c, p_evt);
-  ble_ams_c_on_db_disc_evt(&m_ams_c, p_evt);
+  if (bleStatus & BLE_ANCS_INITED)
+    ble_ancs_c_on_db_disc_evt(&m_ancs_c, p_evt);
+  if (bleStatus & BLE_AMS_INITED)
+    ble_ams_c_on_db_disc_evt(&m_ams_c, p_evt);
 }
 
 /**@brief Function for handling the security request timer time-out.

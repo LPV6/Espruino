@@ -1000,7 +1000,7 @@ JsVar *jswrap_ble_getAdvertisingData(JsVar *data, JsVar *options) {
   }
 
 #if ESPR_BLUETOOTH_ANCS
-  if (bleStatus & BLE_ANCS_INITED) {
+  if (bleStatus & BLE_ANCS_OR_AMS_INITED) {
     static ble_uuid_t m_adv_uuids[1]; /**< Universally unique service identifiers. */
     ble_ancs_get_adv_uuid(m_adv_uuids);
     advdata.uuids_solicited.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
@@ -1168,6 +1168,8 @@ NRF.setServices(undefined, {
   hid : new Uint8Array(...), // optional, default is undefined. Enable BLE HID support
   uart : true, // optional, default is true. Enable BLE UART support
   advertise: [ '180D' ] // optional, list of service UUIDs to advertise
+  ancs : true, // optional, Bangle.js-only, enable Apple ANCS support for notifications
+  ams : true // optional, Bangle.js-only, enable Apple AMS support for media control
 });
 ```
 
@@ -1223,6 +1225,7 @@ void jswrap_ble_setServices(JsVar *data, JsVar *options) {
   bool use_uart = true;
 #if ESPR_BLUETOOTH_ANCS
   bool use_ancs = false;
+  bool use_ams = false;
 #endif
   JsVar *advertise = 0;
 
@@ -1233,6 +1236,7 @@ void jswrap_ble_setServices(JsVar *data, JsVar *options) {
       {"uart", JSV_BOOLEAN, &use_uart},
 #if ESPR_BLUETOOTH_ANCS
       {"ancs", JSV_BOOLEAN, &use_ancs},
+      {"ams", JSV_BOOLEAN, &use_ams},
 #endif
       {"advertise",  JSV_ARRAY, &advertise},
   };
@@ -1272,6 +1276,15 @@ void jswrap_ble_setServices(JsVar *data, JsVar *options) {
     if (bleStatus & BLE_ANCS_INITED)
       bleStatus |= BLE_NEEDS_SOFTDEVICE_RESTART;
     jsvObjectRemoveChild(execInfo.hiddenRoot, BLE_NAME_ANCS);
+  }
+  if (use_ams) {
+    if (!(bleStatus & BLE_AMS_INITED))
+      bleStatus |= BLE_NEEDS_SOFTDEVICE_RESTART;
+    jsvObjectSetChildAndUnLock(execInfo.hiddenRoot, BLE_NAME_AMS, jsvNewFromBool(true));
+  } else {
+    if (bleStatus & BLE_AMS_INITED)
+      bleStatus |= BLE_NEEDS_SOFTDEVICE_RESTART;
+    jsvObjectRemoveChild(execInfo.hiddenRoot, BLE_NAME_AMS);
   }
 #endif
 
@@ -2689,7 +2702,7 @@ Check if Apple Media Service (AMS) is currently active on the BLE connection
 */
 bool jswrap_ble_amsIsActive() {
 #if ESPR_BLUETOOTH_ANCS
-  return ((bleStatus & BLE_ANCS_INITED) && ble_ams_is_active());
+  return ((bleStatus & BLE_AMS_INITED) && ble_ams_is_active());
 #endif
 }
 
@@ -2720,7 +2733,7 @@ Get Apple Media Service (AMS) info for the current media player.
 JsVar *jswrap_ble_amsGetPlayerInfo(JsVar *id) {
   JsVar *promise = 0;
 #if ESPR_BLUETOOTH_ANCS
-  if (!(bleStatus & BLE_ANCS_INITED) || !ble_ams_is_active()) {
+  if (!(bleStatus & BLE_AMS_INITED) || !ble_ams_is_active()) {
     jsExceptionHere(JSET_ERROR, "AMS not active");
     return 0;
   }
@@ -2758,7 +2771,7 @@ Get Apple Media Service (AMS) info for the currently-playing track
 JsVar *jswrap_ble_amsGetTrackInfo(JsVar *id) {
   JsVar *promise = 0;
 #if ESPR_BLUETOOTH_ANCS
-  if (!(bleStatus & BLE_ANCS_INITED) || !ble_ams_is_active()) {
+  if (!(bleStatus & BLE_AMS_INITED) || !ble_ams_is_active()) {
     jsExceptionHere(JSET_ERROR, "AMS not active");
     return 0;
   }
@@ -2796,7 +2809,7 @@ Command is one of play, pause, playpause, next, prev, volup, voldown, repeat, sh
 */
 void jswrap_ble_amsCommand(JsVar *id) {
 #if ESPR_BLUETOOTH_ANCS
-  if (!(bleStatus & BLE_ANCS_INITED) || !ble_ams_is_active()) {
+  if (!(bleStatus & BLE_AMS_INITED) || !ble_ams_is_active()) {
     jsExceptionHere(JSET_ERROR, "AMS not active");
     return;
   }
