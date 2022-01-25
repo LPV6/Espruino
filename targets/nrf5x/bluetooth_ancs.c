@@ -558,10 +558,10 @@ void ble_ancs_on_ble_evt(const ble_evt_t * p_ble_evt)
             NRF_LOG_INFO("Disconnected.\n");
             ret               = app_timer_stop(m_sec_req_timer_id);
             APP_ERROR_CHECK_NOT_URGENT(ret);
-            if (p_ble_evt->evt.gap_evt.conn_handle == m_ancs_c.conn_handle) {
+            if ((bleStatus & BLE_ANCS_INITED) && p_ble_evt->evt.gap_evt.conn_handle == m_ancs_c.conn_handle) {
                 m_ancs_c.conn_handle = BLE_CONN_HANDLE_INVALID;
             }
-            if (p_ble_evt->evt.gap_evt.conn_handle == m_ams_c.conn_handle) {
+            if ((bleStatus & BLE_AMS_INITED) && p_ble_evt->evt.gap_evt.conn_handle == m_ams_c.conn_handle) {
                 m_ams_c.conn_handle = BLE_CONN_HANDLE_INVALID;
             }
             m_ancs_active = false;
@@ -581,11 +581,12 @@ void ble_ancs_on_ble_evt(const ble_evt_t * p_ble_evt)
 static void services_init(void) {
     ret_code_t        ret;
 
+    ble_ancs_clear_attr();
+    ble_ancs_clear_app_attr();
+
     if (bleStatus & BLE_ANCS_INITED) {
       ble_ancs_c_init_t ancs_init_obj;
       memset(&ancs_init_obj, 0, sizeof(ancs_init_obj));
-      ble_ancs_clear_attr();
-      ble_ancs_clear_app_attr();
 
       ret = nrf_ble_ancs_c_app_attr_add(&m_ancs_c,
                                     BLE_ANCS_APP_ATTR_ID_DISPLAY_NAME,
@@ -744,7 +745,7 @@ bool ble_ams_is_active() {
 
 void ble_ancs_get_adv_uuid(ble_uuid_t *p_adv_uuids) {
   p_adv_uuids[0].uuid = 0xF431/*ANCS_UUID_SERVICE*/;
-  p_adv_uuids[0].type = m_ancs_c.service.service.uuid.type;
+  p_adv_uuids[0].type = (bleStatus & BLE_ANCS_INITED) ? m_ancs_c.service.service.uuid.type : m_ams_c.service.service.uuid.type;
 }
 
 /// Perform the given action for the current notification (positive/negative)
