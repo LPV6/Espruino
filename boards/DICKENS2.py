@@ -99,7 +99,7 @@ chip = {
   'adc' : 1,
   'dac' : 0,
   'saved_code' : {
-    'address' : ((246 - 80) * 4096), # Bootloader takes pages 248-255, FS takes 246-247
+    'address' : ((245 - 80) * 4096), # Bootloader takes pages 248-255, FS takes 246-247
     'page_size' : 4096,
     'pages' : 80,
     'flash_available' : 1024 - ((38 + 8 + 2 + 80)*4), # Softdevice uses 0x26=38 pages of flash, bootloader 8, FS 2, code 20. Each page is 4 kb.

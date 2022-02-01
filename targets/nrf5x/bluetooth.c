@@ -1825,8 +1825,10 @@ static void pm_evt_handler(pm_evt_t const * p_evt) {
 
         case PM_EVT_STORAGE_FULL:
         {
+            jsWarn("PM: PM_EVT_STORAGE_FULL - running garbage collection");
             // Run garbage collection on the flash.
             err_code = fds_gc();
+            jsWarn("Garbage collection result: %d", err_code);
             if (err_code == FDS_ERR_BUSY || err_code == FDS_ERR_NO_SPACE_IN_QUEUES)
             {
                 // Retry.
