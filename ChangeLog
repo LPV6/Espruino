@@ -1,4 +1,19 @@
-            nRF52840: Flow control XOFF is now sent at only 3/8th full - delays in BLE mean we can sometimes fill our 1k input buffer otherwise
+            Memory usage improvement: Function scopes no longer stored as an array if they only contain one scope
+            Memory usage improvement: The root scope is never stored in the scope list (it's searched by default)
+            E.dumpVariables now dumps variable flags
+            Tidying up Native Function handling (now JSV_NATIVE_FUNCTION not JSV_NATIVE|JSV_FUNCTION)
+            NRF.getSecurityStatus now returns 'connected_addr' for the address of the currently-connected device
+            NRF.setAdvertising converts arrays of arrays to arrays of ArrayBuffers. Also don't update advertising when connected.
+            Memory usage improvement: Arrow functions only store value of 'this' if 'this' is used by code inside them (fix #2139)
+            Add String.prototype.concat (fix #2140)
+            Much-improved whitespace lexing code using single jumptable - 3% speed increase
+            Allow `process.memory(false)` to get memory info but skip GC
+            Graphics: fix height calculation bug in fillRect/clearRect when given an object with w/h as an argument
+            Fix potential corruption issue caused by `delete [].__proto__` (fix #2142)
+            Bangle.setUI is now minified, also calls Bangle.uiRemove if it was set (to clean up custom UI additions)
+            E.showScroller tweaks to allow redraw requests, get/set initial scroll amount, negative scroll (for titles)
+
+     2v12 : nRF52840: Flow control XOFF is now sent at only 3/8th full - delays in BLE mean we can sometimes fill our 1k input buffer otherwise
             __FILE__ is now set correctly for apps (fixes 2v11 regression)
             Bangle.js: Ensure Bangle.getHealthStatus("day") resets at midnight (fix https://github.com/espruino/BangleApps/issues/1216)
             Bangle.js: Attempt to fix Bangle.buzz that occasionally doesn't stop
@@ -30,6 +45,7 @@
             Bangle.js: Step counter - Remove hard-coded gravity value and subtract DC offset with a filter
             Ensure jsfIsStorageValid kicks watchdog so we can't get stuck in a reboot loop if all of Storage is empty
             Bangle.js: Add 'graphicsInternal' to make Graphics independent of JS vars. Terminal is now useful earlier, and can display softdevice errors
+            Bangle.js2: If errors do happen during Bangle.getPressure, reject the promise (fix #2137)
 
      2v11 : Bangle.js: Enable the Bangle.on('tap') event from the accelerometer by default
             Bangle.js: revert to (better) Kionix default thresholds for tap detect

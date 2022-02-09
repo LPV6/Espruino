@@ -2967,7 +2967,7 @@ NO_INLINE void jswrap_banglejs_hwinit() {
 #ifdef DTNO1_F5
   graphicsInternal.data.flags = JSGRAPHICSFLAGS_INVERT_X | JSGRAPHICSFLAGS_INVERT_Y;
 #endif
-  graphicsInternal.data.fontSize = JSGRAPHICS_FONTSIZE_6X8+1; // 2x size is default
+  graphicsInternal.data.fontSize = JSGRAPHICS_FONTSIZE_6X8+1; // 4x6 size is default
 #ifdef LCD_CONTROLLER_LPM013M126
   lcdMemLCD_init(&graphicsInternal);
   jswrap_banglejs_pwrBacklight(true);
@@ -3137,6 +3137,7 @@ NO_INLINE void jswrap_banglejs_init() {
     showSplashScreen = false;
 #endif
   if (showSplashScreen) {
+    graphicsInternal.data.fontSize = JSGRAPHICS_FONTSIZE_6X8+1; // 4x6 size is default
     graphicsClear(&graphicsInternal);
     bool drawInfo = false;
     JsVar *img = jsfReadFile(jsfNameFromString(".splash"),0,0);
@@ -4348,7 +4349,11 @@ void jswrap_banglejs_ioWr(JsVarInt mask, bool on) {
 Read temperature, pressure and altitude data. A promise is returned
 which will be resolved with `{temperature, pressure, altitude}`.
 
-Conversions take roughly 100ms.  Altitude assumes a sea-level pressure of 1013.25 hPa
+If the Barometer has been turned on with `Bangle.setBarometerPower` then this will
+return almost immediately with the reading. If the Barometer is off, conversions take
+between 500-750ms.
+
+Altitude assumes a sea-level pressure of 1013.25 hPa
 
 ```
 Bangle.getPressure().then(d=>{
@@ -4517,12 +4522,22 @@ JsVar *jswrap_banglejs_getPressure() {
   JsVar *id = jsvNewFromString("getPressure");
   jswrap_banglejs_setBarometerPower(1, id);
   jsvUnLock(id);
+  /* Occasionally on some devices (https://github.com/espruino/Espruino/issues/2137)
+  you can get an I2C error. This stops the error from being fired when getPressure
+  is called and instead rejects the promise. */
+  bool hadError = jspHasError();
+  if (hadError) {
+    JsVar *exception = jspGetException();
+    jspromise_reject(promisePressure, exception);
+    jsvUnLock(exception);
+  }
   int powerOnTimeout = 500;
 #ifdef PRESSURE_DEVICE_BMP280_EN
   if (PRESSURE_DEVICE_BMP280_EN)
-    powerOnTimeout = 1000; // some devices seem to need this long to boot reliably
+    powerOnTimeout = 750; // some devices seem to need this long to boot reliably
 #endif
-  jsvUnLock(jsiSetTimeout(jswrap_banglejs_getPressure_callback, powerOnTimeout));
+  if (!hadError)
+    jsvUnLock(jsiSetTimeout(jswrap_banglejs_getPressure_callback, powerOnTimeout));
   return jsvLockAgain(promisePressure);
 #else
   return 0;
@@ -5295,7 +5310,7 @@ a circle on the display
     "type" : "staticmethod",
     "class" : "Bangle",
     "name" : "setUI",
-    "generate_js" : "libs/js/banglejs/Bangle_setUI_F18.js",
+    "generate_js" : "libs/js/banglejs/Bangle_setUI_F18.min.js",
     "params" : [
       ["type","JsVar","The type of UI input: 'updown', 'leftright', 'clock', 'clockupdown' or undefined to cancel"],
       ["callback","JsVar","A function with one argument which is the direction"]
@@ -5341,7 +5356,7 @@ you could make all clocks start the launcher with a swipe by using:
 */
 /*JSON{
     "type" : "staticmethod", "class" : "Bangle", "name" : "setUI", "patch":true,
-    "generate_js" : "libs/js/banglejs/Bangle_setUI_Q3.js",
+    "generate_js" : "libs/js/banglejs/Bangle_setUI_Q3.min.js",
     "#if" : "defined(BANGLEJS) && defined(BANGLEJS_Q3)"
 }
 */
