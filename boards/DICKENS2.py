@@ -56,7 +56,7 @@ info = {
      'DFU_PRIVATE_KEY=targets/nrf5x_dfu/dfu_private_key.pem',
      'DFU_SETTINGS=--application-version 0xff --hw-version 52 --sd-req 0xA9', # SD 6.0.0
 
-     'DEFINES+=-DBLUETOOTH_NAME_PREFIX=\'"Dickens"\'',
+     'DEFINES+=-DBLUETOOTH_NAME_PREFIX=\'"Chronomark"\'',
      'DEFINES+=-DCUSTOM_GETBATTERY=jswrap_banglejs_getBattery',
      'DEFINES+=-DDUMP_IGNORE_VARIABLES=\'"g\\0"\'',
      'DEFINES+=-DESPR_GRAPHICS_INTERNAL=1',
