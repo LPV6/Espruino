@@ -1136,7 +1136,26 @@ void peripheralPollHandler() {
   if (tapType) {
     // report tap
     tapInfo = buf[0] | (tapType<<6);
-    bangleTasks |= JSBT_ACCEL_TAPPED;
+    bool handled = false;
+    // wake on tap, for front (for Dickens)
+#ifdef DICKENS
+    if ((bangleFlags&JSBF_WAKEON_TOUCH) && (tapInfo&1)) {
+      if (!(bangleFlags&JSBF_LCD_ON)) {
+        bangleTasks |= JSBT_LCD_ON;
+        handled = true;
+      }
+      if (!(bangleFlags&JSBF_LCD_BL_ON)) {
+        bangleTasks |= JSBT_LCD_BL_ON;
+        handled = true;
+      }
+      if (bangleFlags&JSBF_LOCKED) {
+        bangleTasks |= JSBT_UNLOCK;
+        handled = true;
+      }
+    }
+#endif
+    if (!handled)
+      bangleTasks |= JSBT_ACCEL_TAPPED;
     jshHadEvent();
   }
   // clear the IRQ flags
@@ -3233,17 +3252,21 @@ NO_INLINE void jswrap_banglejs_init() {
     jshDelayMicroseconds(2000);
     jswrap_banglejs_accelWr(KX126_CNTL3,KX126_CNTL3_OTP_12P5|KX126_CNTL3_OTDT_400|KX126_CNTL3_OWUF_0P781); // CNTL3 12.5Hz tilt, 400Hz tap, 0.781Hz motion detection
     jswrap_banglejs_accelWr(KX126_ODCNTL,KX126_ODCNTL_OSA_12P5); // ODCNTL - 12.5Hz output data rate (ODR), with low-pass filter set to ODR/9
-    jswrap_banglejs_accelWr(KX126_INC1,0); // INC1 - interrupt output pin INT1 disabled
-    jswrap_banglejs_accelWr(KX126_INC2,0); // INC2 - wake-up & back-to-sleep ignores all 3 axes
-    jswrap_banglejs_accelWr(KX126_INC3,0); // INC3 - tap detection ignores all 3 axes
-    jswrap_banglejs_accelWr(KX126_INC4,0); // INC4 - no routing of interrupt reporting to pin INT1
-    jswrap_banglejs_accelWr(KX126_INC5,0); // INC5 - interrupt output pin INT2 disabled
-    jswrap_banglejs_accelWr(KX126_INC6,0); // INC6 - no routing of interrupt reporting to pin INT2
-    jswrap_banglejs_accelWr(KX126_INC7,0); // INC7 - no step counter interrupts reported on INT1 or INT2
+    jswrap_banglejs_accelWr(KX126_INC1,0);      // INC1 - interrupt output pin INT1 disabled
+    jswrap_banglejs_accelWr(KX126_INC2,0);      // INC2 - wake-up & back-to-sleep ignores all 3 axes
+    jswrap_banglejs_accelWr(KX126_INC3,0x3F);   // INC3 - enable tap detection in all 6 directions
+    jswrap_banglejs_accelWr(KX126_INC4,0);      // INC4 - no routing of interrupt reporting to pin INT1
+    jswrap_banglejs_accelWr(KX126_INC5,0);      // INC5 - interrupt output pin INT2 disabled
+    jswrap_banglejs_accelWr(KX126_INC6,0);      // INC6 - no routing of interrupt reporting to pin INT2
+    jswrap_banglejs_accelWr(KX126_INC7,0);      // INC7 - no step counter interrupts reported on INT1 or INT2
+    jswrap_banglejs_accelWr(KX126_TDTRC,3);     // TDTRC - enable interrupts on single and double taps
+    jswrap_banglejs_accelWr(KX126_TDTC, 0x78);  // TDTC - tap detect double tap (0x78 default)
+    jswrap_banglejs_accelWr(KX126_TTH, 0xCB);   // TTH - tap detect threshold high (0xCB default)
+    jswrap_banglejs_accelWr(KX126_TTL, 0x22);   // TTL - tap detect threshold low (0x1A default)
     jswrap_banglejs_accelWr(KX126_BUF_CLEAR,0); // clear the buffer
 
-    jswrap_banglejs_accelWr(KX126_CNTL1,KX126_CNTL1_DRDYE|KX126_CNTL1_GSEL_4G); // CNTL1 - standby mode, low power, enable "data ready" interrupt, 4g, disable tap, tilt & pedometer (for now)
-    jswrap_banglejs_accelWr(KX126_CNTL1,KX126_CNTL1_DRDYE|KX126_CNTL1_GSEL_4G|KX126_CNTL1_PC1); // CNTL1 - same as above but change from standby to operating mode
+    jswrap_banglejs_accelWr(KX126_CNTL1,KX126_CNTL1_DRDYE|KX126_CNTL1_GSEL_4G|KX126_CNTL1_TDTE); // CNTL1 - standby mode, low power, enable "data ready" interrupt, 4g, enable tap, disable tilt & pedometer (for now)
+    jswrap_banglejs_accelWr(KX126_CNTL1,KX126_CNTL1_DRDYE|KX126_CNTL1_GSEL_4G|KX126_CNTL1_TDTE|KX126_CNTL1_PC1); // CNTL1 - same as above but change from standby to operating mode
 #endif
 
 #ifdef PRESSURE_DEVICE
@@ -3668,6 +3691,14 @@ bool jswrap_banglejs_idle() {
       JsVar *o = jsvNewObject();
       if (o) {
         const char *string="";
+#ifdef DICKENS
+        if (tapInfo&1) string="front";
+        if (tapInfo&2) string="back";
+        if (tapInfo&4) string="top";
+        if (tapInfo&8) string="bottom";
+        if (tapInfo&16) string="left";
+        if (tapInfo&32) string="right";
+#else
 #ifdef BANGLEJS_Q3
         if (tapInfo&2) string="front";
         if (tapInfo&1) string="back";
@@ -3679,9 +3710,9 @@ bool jswrap_banglejs_idle() {
         if (tapInfo&4) string="bottom";
         if (tapInfo&8) string="top";
 #endif
-
         if (tapInfo&16) string="right";
         if (tapInfo&32) string="left";
+#endif        
         int n = (tapInfo&0x80)?2:1;
         jsvObjectSetChildAndUnLock(o, "dir", jsvNewFromString(string));
         jsvObjectSetChildAndUnLock(o, "double", jsvNewFromBool(tapInfo&0x80));
