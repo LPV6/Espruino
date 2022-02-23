@@ -392,7 +392,16 @@ Bangle.on('stroke',o=>{
 }
 ```
 */
+/*JSON{
+  "type" : "event",
+  "class" : "Bangle",
+  "name" : "midnight",
+  "ifdef" : "BANGLEJS"
+}
+Emitted at midnight (at the point the `day` health info is reset to 0).
 
+Can be used for housekeeping tasks that don't want to be run during the day.
+*/
 
 #define ACCEL_HISTORY_LEN 50 ///< Number of samples of accelerometer history
 
@@ -801,6 +810,7 @@ typedef enum {
   JSBT_ACCEL_INTERVAL_POWERSAVE = 1<<27, ///< reschedule accelerometer poll handler to powersave speed
   JSBT_HRM_INSTANT_DATA = 1<<28, ///< Instant heart rate data
   JSBT_HEALTH = 1<<29, ///< New 'health' event
+  JSBT_MIDNIGHT = 1<<30, ///< Fired at midnight each day - for housekeeping tasks
 } JsBangleTasks;
 JsBangleTasks bangleTasks;
 
@@ -1330,7 +1340,7 @@ void peripheralPollHandler() {
   }
 #endif
 
-  // Health tracking
+  // Health tracking + midnight event
   // Did we enter a new 10 minute interval?
   JsVarFloat msecs = jshGetMillisecondsFromTime(time);
   uint8_t healthIndex = (uint8_t)(msecs/HEALTH_INTERVAL);
@@ -1340,10 +1350,12 @@ void peripheralPollHandler() {
     healthStateClear(&healthCurrent);
     healthCurrent.index = healthIndex;
     bangleTasks |= JSBT_HEALTH;
+    jshHadEvent();
     // What if we've changed day?
     TimeInDay td = getTimeFromMilliSeconds(msecs, false/*forceGMT*/);
     uint8_t dayIndex = (uint8_t)td.daysSinceEpoch;
     if (dayIndex != healthDaily.index) {
+      bangleTasks |= JSBT_MIDNIGHT;
       healthStateClear(&healthDaily);
       healthDaily.index = dayIndex;
     }
@@ -3644,6 +3656,9 @@ bool jswrap_banglejs_idle() {
         jsvUnLock(o);
       }
     }
+    if (bangleTasks & JSBT_MIDNIGHT) {
+      jsiQueueObjectCallbacks(bangle, JS_EVENT_PREFIX"midnight", NULL, 0);
+    }
     if (bangleTasks & JSBT_GESTURE_DATA) {
       if (jsiObjectHasCallbacks(bangle, JS_EVENT_PREFIX"gesture")) {
         JsVar *arr = jsvNewTypedArray(ARRAYBUFFERVIEW_INT8, accGestureRecordedCount*3);
@@ -4380,16 +4395,17 @@ JsVar *jswrap_banglejs_getPressure() {
   if (hadError) {
     JsVar *exception = jspGetException();
     jspromise_reject(promisePressure, exception);
-    jsvUnLock(exception);
-  }
-  int powerOnTimeout = 500;
+    jsvUnLock2(promisePressure,exception);
+    promisePressure = 0;
+  } else {
+    int powerOnTimeout = 500;
 #ifdef PRESSURE_DEVICE_BMP280_EN
-  if (PRESSURE_DEVICE_BMP280_EN)
-    powerOnTimeout = 750; // some devices seem to need this long to boot reliably
+    if (PRESSURE_DEVICE_BMP280_EN)
+      powerOnTimeout = 750; // some devices seem to need this long to boot reliably
 #endif
-  if (!hadError)
     jsvUnLock(jsiSetTimeout(jswrap_banglejs_getPressure_callback, powerOnTimeout));
-  return jsvLockAgain(promisePressure);
+    return jsvLockAgain(promisePressure);
+  }
 #else
   return 0;
 #endif
@@ -4896,7 +4912,7 @@ var boolean = false;
 var number = 50;
 // First menu
 var mainmenu = {
-  "" : { "title" : "-- Main Menu --" },
+  "" : { title : "-- Main Menu --" },
   "LED On" : function() { LED1.set(); },
   "LED Off" : function() { LED1.reset(); },
   "Submenu" : function() { E.showMenu(submenu); },
@@ -4914,10 +4930,10 @@ var mainmenu = {
 };
 // Submenu
 var submenu = {
-  "" : { "title" : "-- SubMenu --" },
+  "" : { title : "-- SubMenu --",
+         back : function() { E.showMenu(mainmenu); } },
   "One" : undefined, // do nothing
-  "Two" : undefined, // do nothing
-  "< Back" : function() { E.showMenu(mainmenu); },
+  "Two" : undefined // do nothing
 };
 // Actually display the menu
 E.showMenu(mainmenu);
@@ -5023,7 +5039,7 @@ The second `options` argument can contain:
     "params" : [
       ["options","JsVar","An object containing `{ h, c, draw, select }` (see below) "]
     ],
-    "return" : ["JsVar", "A menu object with `draw`, `move` and `select` functions" ],
+    "return" : ["JsVar", "A menu object with `draw()` and `drawItem(itemNo)` functions" ],
     "ifdef" : "BANGLEJS"
 }
 Display a scrollable menu on the screen, and set up the buttons/touchscreen to navigate through it
@@ -5039,6 +5055,8 @@ Supply an object containing:
   draw : function(idx, rect) { ... }
   // a function to call when the item is selected
   select : function(idx) { ... }
+  // optional function to be called when 'back' is tapped - Bangle.js 2 only
+  back : function() { ...}
 }
 ```
 
@@ -5048,7 +5066,7 @@ For example to display a list of numbers:
 E.showScroller({
   h : 40, c : 8,
   draw : (idx, r) => {
-    g.setBgColor((idx&1)?"#fff":"#ccc").clearRect(r.x,r.y,r.x+r.w-1,r.y+r.h-1);
+    g.setBgColor((idx&1)?"#666":"#999").clearRect(r.x,r.y,r.x+r.w-1,r.y+r.h-1);
     g.setFont("6x8:2").drawString("Item Number\n"+idx,r.x+10,r.y+4);
   },
   select : (idx) => console.log("You selected ", idx)
@@ -5163,7 +5181,7 @@ a circle on the display
     "name" : "setUI",
     "generate_js" : "libs/js/banglejs/Bangle_setUI_F18.min.js",
     "params" : [
-      ["type","JsVar","The type of UI input: 'updown', 'leftright', 'clock', 'clockupdown' or undefined to cancel"],
+      ["type","JsVar","The type of UI input: 'updown', 'leftright', 'clock', 'clockupdown' or undefined to cancel. Can also be an object (see below)"],
       ["callback","JsVar","A function with one argument which is the direction"]
     ],
     "ifdef" : "BANGLEJS"
@@ -5203,6 +5221,18 @@ you could make all clocks start the launcher with a swipe by using:
     Bangle.on("swipe", Bangle.swipeHandler);
   };
 })();
+
+The first argument can also be an object, in which case more options can be specified:
+
+```
+Bangle.setUI({
+  mode : "custom",
+  back : function() {}, // add a 'back' icon and call this function when it is pressed (Bangle.js 2 only)
+  touch : function() {}, // handler for 'touch' events (Bangle.js 2 only)
+  drag : function() {}, // handler for 'drag' events (Bangle.js 2 only)
+}, function(dir) => {
+ // ...
+});
 ```
 */
 /*JSON{

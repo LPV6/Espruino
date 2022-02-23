@@ -2920,11 +2920,11 @@ void jsble_set_services(JsVar *data) {
           char_md.char_user_desc_max_size = len;
         }
         jsvUnLock(charDescriptionVar);
-
         memset(&attr_md, 0, sizeof(attr_md));
         // init access with default values
         BLE_GAP_CONN_SEC_MODE_SET_OPEN(&attr_md.read_perm);
         BLE_GAP_CONN_SEC_MODE_SET_OPEN(&attr_md.write_perm);
+#ifndef SAVE_ON_FLASH
         // set up access with user configs
         JsVar *securityVar = jsvObjectGetChild(charVar, "security", 0);
         if (securityVar != NULL) {
@@ -2940,6 +2940,7 @@ void jsble_set_services(JsVar *data) {
           }
         }
         jsvUnLock(securityVar);
+#endif
 
         attr_md.vloc       = BLE_GATTS_VLOC_STACK;
         attr_md.rd_auth    = 0;

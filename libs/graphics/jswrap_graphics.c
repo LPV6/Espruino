@@ -902,7 +902,8 @@ JsVar *jswrap_graphics_clear(JsVar *parent, bool resetState) {
   return jsvLockAgain(parent);
 }
 
-void _jswrap_graphics_getRect(JsVar *opt, int *x1, int *y1, int *x2, int *y2) {
+void _jswrap_graphics_getRect(JsVar *opt, int *x1, int *y1, int *x2, int *y2, int *r) {
+  *r = 0;
   if (jsvIsObject(opt)) {
     int w = -1,h = -1;
     jsvConfigObject configs[] = {
@@ -914,12 +915,60 @@ void _jswrap_graphics_getRect(JsVar *opt, int *x1, int *y1, int *x2, int *y2) {
         {"y2", JSV_INTEGER, y2},
         {"w", JSV_INTEGER, &w},
         {"h", JSV_INTEGER, &h},
+        {"r", JSV_INTEGER, r}
     };
     jsvReadConfigObject(opt, configs, sizeof(configs) / sizeof(jsvConfigObject));
     if (w>=0) *x2 = *x1 + w;
     if (h>=0) *y2 = *y1 + h;
   } else
     *x1 = jsvGetInteger(opt);
+}
+
+JsVar *_jswrap_graphics_fillRect_col(JsVar *parent, JsVar *opt, int y1, int x2, int y2, bool isFgCol) {
+  int x1, r;
+  _jswrap_graphics_getRect(opt, &x1, &y1, &x2, &y2, &r);
+  JsGraphics gfx; if (!graphicsGetFromVar(&gfx, parent)) return 0;
+  uint32_t col = isFgCol ? gfx.data.fgColor : gfx.data.bgColor;
+#ifndef SAVE_ON_FLASH
+  if (r>0) {
+    // rounded rects
+    graphicsToDeviceCoordinates(&gfx, &x1, &y1);
+    graphicsToDeviceCoordinates(&gfx, &x2, &y2);
+    int x,y;
+    if (x1 > x2) { x = x1; x1 = x2; x2 = x; }
+    if (y1 > y2) { y = y1; y1 = y2; y2 = y; }
+    // clip if radius too big
+    x = (x2-x1)/2;
+    y = (y2-y1)/2;
+    if (x<r) r=x;
+    if (y<r) r=y;
+    // rect in middle
+    int cx1 = x1+r, cx2 = x2-r;
+    int cy1 = y1+r, cy2 = y2-r;
+    graphicsFillRectDevice(&gfx, x1, cy1, x2, cy2, col);
+    // draw rounded top and bottom
+    int dx = 0;
+    int dy = r;
+    int r2 = r*r;
+    int err = r2-(2*r-1)*r2;
+    int e2;
+    bool changed = false;
+    do {
+      changed = false;
+      e2 = 2*err;
+      if (e2 <  (2*dx+1)*r2) { dx++; err += (2*dx+1)*r2; changed=true; }
+      if (e2 > -(2*dy-1)*r2) {
+        // draw only just before we change Y, to avoid a bunch of overdraw
+        graphicsFillRectDevice(&gfx, cx1-dx,cy2+dy, cx2+dx,cy2+dy, col);
+        graphicsFillRectDevice(&gfx, cx1-dx,cy1-dy, cx2+dx,cy1-dy, col);
+        dy--; err -= (2*dy-1)*r2; changed=true;
+      }
+    } while (changed && dy >= 0);
+  } else
+#endif
+  graphicsFillRect(&gfx, x1,y1,x2,y2,col);
+  graphicsSetVar(&gfx); // gfx data changed because modified area
+  return jsvLockAgain(parent);
 }
 
 /*JSON{
@@ -937,15 +986,15 @@ void _jswrap_graphics_getRect(JsVar *opt, int *x1, int *y1, int *x2, int *y2) {
   "return_object" : "Graphics"
 }
 Fill a rectangular area in the Foreground Color
+
+On devices with enough memory, you can specify `{x,y,x2,y2,r}` as the first
+argument, which allows you to draw a rounded rectangle.
 */
 JsVar *jswrap_graphics_fillRect(JsVar *parent, JsVar *opt, int y1, int x2, int y2) {
-  int x1;
-  _jswrap_graphics_getRect(opt, &x1, &y1, &x2, &y2);
-  JsGraphics gfx; if (!graphicsGetFromVar(&gfx, parent)) return 0;
-  graphicsFillRect(&gfx, x1,y1,x2,y2,gfx.data.fgColor);
-  graphicsSetVar(&gfx); // gfx data changed because modified area
-  return jsvLockAgain(parent);
+  return _jswrap_graphics_fillRect_col(parent,opt,y1,x2,y2,true);
 }
+
+
 
 /*JSON{
   "type" : "method",
@@ -963,14 +1012,12 @@ JsVar *jswrap_graphics_fillRect(JsVar *parent, JsVar *opt, int y1, int x2, int y
   "return_object" : "Graphics"
 }
 Fill a rectangular area in the Background Color
+
+On devices with enough memory, you can specify `{x,y,x2,y2,r}` as the first
+argument, which allows you to draw a rounded rectangle.
 */
 JsVar *jswrap_graphics_clearRect(JsVar *parent, JsVar *opt, int y1, int x2, int y2) {
-  int x1;
-  _jswrap_graphics_getRect(opt, &x1, &y1, &x2, &y2);
-  JsGraphics gfx; if (!graphicsGetFromVar(&gfx, parent)) return 0;
-  graphicsFillRect(&gfx, x1,y1,x2,y2,gfx.data.bgColor);
-  graphicsSetVar(&gfx); // gfx data changed because modified area
-  return jsvLockAgain(parent);
+  return _jswrap_graphics_fillRect_col(parent,opt,y1,x2,y2,false);
 }
 
 /*JSON{
@@ -990,8 +1037,8 @@ JsVar *jswrap_graphics_clearRect(JsVar *parent, JsVar *opt, int y1, int x2, int 
 Draw an unfilled rectangle 1px wide in the Foreground Color
 */
 JsVar *jswrap_graphics_drawRect(JsVar *parent, JsVar *opt, int y1, int x2, int y2) {
-  int x1;
-  _jswrap_graphics_getRect(opt, &x1, &y1, &x2, &y2);
+  int x1, r;
+  _jswrap_graphics_getRect(opt, &x1, &y1, &x2, &y2, &r);
   JsGraphics gfx; if (!graphicsGetFromVar(&gfx, parent)) return 0;
   graphicsDrawRect(&gfx, x1,y1,x2,y2);
   graphicsSetVar(&gfx); // gfx data changed because modified area
@@ -2028,6 +2075,8 @@ JsVar *jswrap_graphics_wrapString(JsVar *parent, JsVar *str, int maxWidth) {
   int wordWidth = 0;
   int lineWidth = 0;
   int wordStartIdx = 0;
+  int wordIdxAtMaxWidth = 0; // index just before the word width>maxWidth
+  int wordWidthAtMaxWidth = 0; // index just before the word width>maxWidth
   bool endOfText = false;
   bool wasNewLine = false;
 
@@ -2047,15 +2096,22 @@ JsVar *jswrap_graphics_wrapString(JsVar *parent, JsVar *str, int maxWidth) {
         }
         jsvAppendStringVar(currentLine, str, wordStartIdx, currentPos-(wordStartIdx+1));
         lineWidth += wordWidth;
-      } else {
-        // new line
+      } else { // doesn't fit one one line - move to new line
         lineWidth = wordWidth;
         if (jsvGetStringLength(currentLine) || wasNewLine)
           jsvArrayPush(lines, currentLine);
         jsvUnLock(currentLine);
+        if (wordIdxAtMaxWidth) {
+          // word is too long to fit on a line
+          currentLine = jsvNewFromStringVar(str, wordStartIdx, wordIdxAtMaxWidth-(wordStartIdx+1));
+          jsvArrayPushAndUnLock(lines, currentLine);
+          wordStartIdx = wordIdxAtMaxWidth-1;
+          lineWidth -= wordWidthAtMaxWidth;
+        }
         currentLine = jsvNewFromStringVar(str, wordStartIdx, currentPos-(wordStartIdx+1));
       }
       wordWidth = 0;
+      wordIdxAtMaxWidth = 0;
       wordStartIdx = currentPos;
       wasNewLine = ch=='\n';
       if (endOfText) break;
@@ -2070,11 +2126,17 @@ JsVar *jswrap_graphics_wrapString(JsVar *parent, JsVar *str, int maxWidth) {
         _jswrap_graphics_freeImageInfo(&img);
         // string iterator now points to the next char after image
         wordWidth += img.width;
+        if (!jsvStringIteratorHasChar(&it)) endOfText=true;
       }
       continue;
     }
 #endif
-    wordWidth += _jswrap_graphics_getCharWidth(&gfx, &info, ch);
+    int w = _jswrap_graphics_getCharWidth(&gfx, &info, ch);
+    if (wordWidth <= maxWidth && wordWidth+w>maxWidth) {
+      wordIdxAtMaxWidth = jsvStringIteratorGetIndex(&it);
+      wordWidthAtMaxWidth = wordWidth;
+    }
+    wordWidth += w;
     if (!jsvStringIteratorHasChar(&it)) endOfText=true;
   }
   jsvStringIteratorFree(&it);

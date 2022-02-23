@@ -1,4 +1,9 @@
 (function(mode, cb) {
+  var options = {};
+  if ("object"==typeof mode) {
+    options = mode;
+    mode = options.mode;
+  }  
   if (Bangle.btnWatches) {
     Bangle.btnWatches.forEach(clearWatch);
     delete Bangle.btnWatches;
@@ -20,13 +25,13 @@
     Bangle.btnWatches = [
       setWatch(function() { cb(-1); }, BTN1, {repeat:1}),
       setWatch(function() { cb(1); }, BTN3, {repeat:1}),
-      setWatch(function() { cb(); }, BTN2, {repeat:1})
+      setWatch(function() { cb(); }, BTN2, {repeat:1,edge:"falling"})
     ];
   } else if (mode=="leftright") {
     Bangle.btnWatches = [
       setWatch(function() { cb(-1); }, BTN1, {repeat:1}),
       setWatch(function() { cb(1); }, BTN3, {repeat:1}),
-      setWatch(function() { cb(); }, BTN2, {repeat:1})
+      setWatch(function() { cb(); }, BTN2, {repeat:1,edge:"falling"})
     ];
     Bangle.swipeHandler = d => {cb(d);};
     Bangle.on("swipe", Bangle.swipeHandler);
