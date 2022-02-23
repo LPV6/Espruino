@@ -80,6 +80,11 @@ static bool get_btn2_state() {
   return jshPinGetValue(BTN2_PININDEX)==BTN2_ONSTATE;
 }
 #endif
+#ifdef BAT_PIN_CHARGING
+static bool get_charging_state() {
+  return jshPinGetValue(BAT_PIN_CHARGING)==0;
+}
+#endif
 
 static void hardware_init(void) {
 #if defined(PIXLJS)

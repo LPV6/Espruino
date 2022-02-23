@@ -4626,10 +4626,23 @@ static void jswrap_banglejs_periph_off() {
   to re-enable everything. */
   jshPinWatch(BTN1_PININDEX, true);
   nrf_gpio_cfg_sense_set(pinInfo[BTN1_PININDEX].pin, NRF_GPIO_PIN_SENSE_LOW);
+#ifdef DICKENS
+  jshPinWatch(BAT_PIN_CHARGING, true); // watch for when power applied
+  nrf_gpio_cfg_sense_set(pinInfo[BAT_PIN_CHARGING].pin, NRF_GPIO_PIN_SENSE_LOW); // falling -> on charge
+#endif
 #else
   jsExceptionHere(JSET_ERROR, ".off not implemented on emulator");
 #endif
 
+}
+
+// True if a button/charge input/etc should wake the Bangle from being off
+static bool _jswrap_banglejs_shouldWake() {
+  return jshPinGetValue(BTN1_PININDEX)==BTN1_ONSTATE
+#ifdef DICKENS
+      || jshPinGetValue(BAT_PIN_CHARGING)==0/*charging*/
+#endif
+      ;
 }
 
 /*JSON{
@@ -4644,14 +4657,9 @@ Turn Bangle.js off. It can only be woken by pressing BTN1.
 void jswrap_banglejs_off() {
 #ifndef EMULATED
   // If BTN1 is pressed wait until it is released
-  while (jshPinGetValue(BTN1_PININDEX));
+  while (_jswrap_banglejs_shouldWake());
   // turn peripherals off
   jswrap_banglejs_periph_off();
-  /* The low power pin watch code (nrf_drv_gpiote_in_init) somehow causes
-  the sensing to be disabled such that nrf_gpio_cfg_sense_set(pin, NRF_GPIO_PIN_SENSE_LOW)
-  no longer works. To work around this we just call our standard pin watch function
-  to re-enable everything. */
-  jshPinWatch(BTN1_PININDEX, true);
   // system off
   sd_power_system_off();
   while(1);
@@ -4670,6 +4678,7 @@ void jswrap_banglejs_off() {
 Turn Bangle.js (mostly) off, but keep the CPU in sleep
 mode until BTN1 is pressed to preserve the RTC (current time).
 */
+
 void jswrap_banglejs_softOff() {
 #ifndef EMULATED
   // If BTN1 is pressed wait until it is released
@@ -4683,17 +4692,17 @@ void jswrap_banglejs_softOff() {
   // keep sleeping until a button is pressed
   jshKickWatchDog();
   do {
-  // sleep until BTN1 pressed
-  while (!jshPinGetValue(BTN1_PININDEX)) {
-    jshKickWatchDog();
-    jshSleep(jshGetTimeFromMilliseconds(4*1000));
-  }
+    // sleep until BTN1 pressed
+    while (!_jswrap_banglejs_shouldWake()) {
+      jshKickWatchDog();
+      jshSleep(jshGetTimeFromMilliseconds(4*1000));
+    }
     // wait for button to be pressed for at least 1 second
     int timeout = 1000;
-    while (jshPinGetValue(BTN1_PININDEX) && timeout--)
+    while (_jswrap_banglejs_shouldWake() && timeout--)
       nrf_delay_ms(1);
     // if button not pressed, keep sleeping
-  } while (!jshPinGetValue(BTN1_PININDEX));
+  } while (!_jswrap_banglejs_shouldWake());
   // restart
   jshReboot();
 

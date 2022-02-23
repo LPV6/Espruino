@@ -366,9 +366,9 @@ void flashCheckFile(uint32_t fileAddr) {
   }
   lcd_print_hex(fileAddr); lcd_println(" FILE ADDR");
   lcd_print_hex(header.address); lcd_println(" HEADER ADDR");
-  lcd_print_hex(header.size); lcd_println(" SIZE");
+  /*lcd_print_hex(header.size); lcd_println(" SIZE");
   lcd_print_hex(header.CRC); lcd_println(" CRC");
-  lcd_print_hex(header.version); lcd_println(" VERSION");
+  lcd_print_hex(header.version); lcd_println(" VERSION");*/
   if (header.address==0xf7000) return; // NO BOOTLOADER - FOR TESTING
   // Calculate CRC
   lcd_println("CRC TEST...");
@@ -387,18 +387,18 @@ void flashCheckFile(uint32_t fileAddr) {
   bool isEqual = false;
   if (crc != header.CRC) {
     // CRC is wrong - exits
-    lcd_print_hex(crc); lcd_println(" CRC");
-    lcd_println("CRC MISMATCH. NOT FLASHING");
+    //lcd_print_hex(crc); lcd_println(" CRC");
+    lcd_println("CRC MISMATCH");
     for (volatile int i=0;i<5000000;i++) NRF_WDT->RR[0] = 0x6E524635; // delay
     // don't flash if the CRC doesn't match
     return;
   } else {
     // All ok - check we haven't already flashed this!
     lcd_println("CRC OK");
-    lcd_println("TESTING...");
+    //lcd_println("TESTING...");
     isEqual = flashEqual(header, fileAddr);
   }
-  lcd_println("REMOVE HEADER");
+  //lcd_println("REMOVE HEADER");
   // Now erase the 'name' from the file header
   // which basically erases the file, so we don't
   // get into a boot loop
@@ -418,7 +418,7 @@ void flashCheckFile(uint32_t fileAddr) {
   // assume it's erased...
 
   if (!isEqual) {
-    lcd_println("FW DIFFERENT");
+    //lcd_println("FW DIFFERENT");
     lcd_println("FLASHING...");
 
     xlcd_rect(60,180,180,180,true);

@@ -127,6 +127,7 @@ void turn_off() {
 //NRF_GPIO_PIN_CNF(31,0x00000003);                // D31 = Debug output pin (brought out to external header on)
 //NRF_GPIO_PIN_CNF(BTN4_PININDEX,0x0003000c);     // D42 = BTN4 input (with pullup and low-level sense)
   NRF_GPIO_PIN_CNF(BTN1_PININDEX,0x0003000c);     // D46 = BTN1 input (with pullup and low-level sense)
+  NRF_GPIO_PIN_CNF(BAT_PIN_CHARGING,0x0003000c);     // Charge input (with pullup and low-level sense)
 #else  // !DICKENS
   set_led_state(0,0);
 #if defined(BTN2_PININDEX)
@@ -371,14 +372,17 @@ int main(void)
     dfuIsColdBoot = (r&0xF)==0;
 
 #if defined(DICKENS) || defined(BANGLEJS)  
-    // On smartwatches, turn on only if BTN1 held for >1 second
+    // On smartwatches, turn on only if BTN1 held for >1 second or charging
     // This may help in cases where battery is TOTALLY flat
     if ((r&0b1011)==0) {
       // if not watchdog, lockup, or reset pin...
       if ((r&0xF)==0) { // Bangle.softOff causes 'SW RESET' after 1 sec, so r==4
         nrf_delay_ms(1000);
       }
-      if (!get_btn1_state() && (r&0xF)==0) { // Don't turn off after a SW reset, to avoid user input needed during reflashing
+      if (!get_btn1_state() && get_charging_state()) {
+        nrf_delay_ms(3000); // wait 4 secs in total before booting if on charge
+      }
+      if (!get_btn1_state() && !get_charging_state() && (r&0xF)==0) { // Don't turn off after a SW reset, to avoid user input needed during reflashing
         turn_off();
       } else {
 #ifdef DICKENS
