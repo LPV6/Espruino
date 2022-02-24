@@ -205,6 +205,7 @@ bool dfu_enter_check(void) {
 #endif
       } else {
         lcd_clear();
+        print_fw_version();
         lcd_println("DFU START");
       }
       set_led_state(true, true);
@@ -394,7 +395,9 @@ int main(void)
           NRF_POWER->RESETREAS = 0xFFFFFFFF;
 #ifdef ESPR_BOOTLOADER_SPIFLASH
           lcd_init();
-          lcd_println("DFU " JS_VERSION "\n");
+#ifndef DICKENS
+          print_fw_version();
+#endif
           // Check if we should reflash new firmware
           flashCheckAndRun();
 #endif
@@ -421,7 +424,7 @@ int main(void)
     }
     // Clear reset reason flags
     NRF_POWER->RESETREAS = 0xFFFFFFFF;
-    lcd_println("DFU " JS_VERSION "\n");
+    print_fw_version();
 #ifdef ESPR_BOOTLOADER_SPIFLASH
     if (!get_btn1_state()) flashCheckAndRun();
 #endif

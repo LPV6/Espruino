@@ -442,7 +442,9 @@ void flashCheckFile(uint32_t fileAddr) {
 
 
 void flashCheckAndRun() {
+#ifndef DICKENS
   lcd_println("CHECK STORAGE");
+#endif
   spiFlashInit();
 
   uint32_t addr = JSF_START_ADDRESS;
@@ -451,6 +453,9 @@ void flashCheckAndRun() {
   int tries = 50000;
   if (jsfGetFileHeader(addr, &header)) do {
     if (tries-- < 0) {
+#ifdef DICKENS
+      print_fw_version();
+#endif
       lcd_println("TOO MANY FILES");
       return;
     }
@@ -458,12 +463,17 @@ void flashCheckAndRun() {
     /*lcd_print_hex(addr);
     if (n[0]) lcd_println(n); else lcd_println("-DELETED-");*/
     if (n[0]=='.' && n[1]=='f' && n[2]=='i' && n[3]=='r' && n[4]=='m' && n[5]=='w' && n[6]=='a' && n[7]=='r' && n[8]=='e' && n[9]==0) {
+#ifdef DICKENS
+      print_fw_version();
+#endif
       lcd_println("FOUND FIRMWARE");
       flashCheckFile(addr + sizeof(JsfFileHeader)/*, jsfGetFileSize(&header)*/);
       return;
     }
   } while (jsfGetNextFileHeader(&addr, &header));
+#ifndef DICKENS
   lcd_println("NO NEW FW");
+#endif
 }
 
 // Put the SPI Flash into deep power-down mode

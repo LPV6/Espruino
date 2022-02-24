@@ -731,14 +731,13 @@ void lcd_flip() {
   }
   ymin=LCD_HEIGHT;
   ymax=0;
-  jshPinOutput(LCD_BL, LCD_BL_ON); // backlight on
 }
 
 void lcd_init() {
 #ifdef GPS_PIN_EN
   jshPinOutput(GPS_PIN_EN,1); // GPS off
 #endif
-//  jshPinOutput(LCD_BL, LCD_BL_ON); // Don't turn the backlight on yet, otherwise it could show garbage - do it at the end of lcd_flip() instead
+//  jshPinOutput(LCD_BL, LCD_BL_ON); // Don't turn the backlight on yet, otherwise it could show garbage
 #ifdef LCD_EN
   jshPinOutput(LCD_EN,1); // enable on
 #endif
@@ -761,7 +760,12 @@ void lcd_init() {
       jshDelayMicroseconds(1000*cmd[CMDINDEX_DELAY]);
     cmd += 3 + cmd[CMDINDEX_DATALEN];
   }
+
+  lcd_clear();  
+  nrf_delay_ms(30); // wait for the screen to update before turning on the backlight
+  jshPinOutput(LCD_BL, LCD_BL_ON); // backlight on
 }
+
 void lcd_kill() {
   jshPinOutput(LCD_BL, !LCD_BL_ON); // backlight off
   lcd_cmd(0x28, 0, NULL); // display off
@@ -772,7 +776,7 @@ void lcd_kill() {
 #endif
 }
 
-#endif
+#endif // LCD_CONTROLLER_ST7735 or LCD_CONTROLLER_GC9A01
 
 #ifdef LCD_CONTROLLER_LPM013M126
 

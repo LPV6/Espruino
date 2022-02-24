@@ -17,6 +17,7 @@
 #include "jspininfo.h"
 #include "nrf_gpio.h"
 #include "nrf_delay.h"
+#include "lcd.h"
 
 /// Because Nordic's library functions don't inline on NRF52840!
 #ifdef NRF_P1
@@ -86,6 +87,10 @@ static bool get_charging_state() {
 }
 #endif
 
+static void print_fw_version(void) {
+  lcd_println("BL " JS_VERSION "\n");
+}
+
 static void hardware_init(void) {
 #if defined(PIXLJS)
   // LED1 is backlight - don't use it, but ensure it's off
@@ -95,6 +100,8 @@ static void hardware_init(void) {
 #ifdef DICKENS // Simpler setup of BTN1 and BTN2 to save 48 bytes of code space
   NRF_GPIO_PIN_CNF(BTN1_PININDEX,0x0003000c);     // BTN1 input (with pullup and low-level sense)
   NRF_GPIO_PIN_CNF(BTN2_PININDEX,0x0003000c);     // BTN2 input (with pullup and low-level sense)
+  jshPinOutput(LCD_BL, !LCD_BL_ON);               // backlight off
+//  NRF_P1->OUT=0x00000001; // Backlight output high (for off) 
 #else // !DICKENS
 #ifdef BTN1_PININDEX
   bool polarity;
