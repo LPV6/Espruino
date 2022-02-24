@@ -92,6 +92,10 @@ static void hardware_init(void) {
   jshPinOutput(LED1_PININDEX, 0);
 #endif
   set_led_state(false, false);
+#ifdef DICKENS // Simpler setup of BTN1 and BTN2 to save 48 bytes of code space
+  NRF_GPIO_PIN_CNF(BTN1_PININDEX,0x0003000c);     // BTN1 input (with pullup and low-level sense)
+  NRF_GPIO_PIN_CNF(BTN2_PININDEX,0x0003000c);     // BTN2 input (with pullup and low-level sense)
+#else // !DICKENS
 #ifdef BTN1_PININDEX
   bool polarity;
   uint32_t pin;
@@ -112,6 +116,7 @@ static void hardware_init(void) {
   nrf_gpio_cfg_input(pin,
           polarity ? NRF_GPIO_PIN_PULLDOWN : NRF_GPIO_PIN_PULLUP);
 #endif
+#endif // !DICKENS
 #ifdef VIBRATE_PIN
   jshPinOutput(VIBRATE_PIN,0); // vibrate off
 #endif
