@@ -1243,11 +1243,16 @@ void jsfWriteInitialStorage() {
   if (jsfStorageInitialContentLength<FLASH_SAVED_CODE_LENGTH) {
     jsiConsolePrintf("Writing initial storage contents to internal flash...\n");
     jshFlashWrite(jsfStorageInitialContents, FLASH_SAVED_CODE_START, jsfStorageInitialContentLength);
+    jsiConsolePrintf("Write complete.\n");
   } else {
+#ifdef FLASH_SAVED_CODE2_START
     jsiConsolePrintf("Writing initial storage contents to external SPI flash...\n");
-    jshFlashWrite(jsfStorageInitialContents, FLASH_SAVED_CODE2_START, jsfStorageInitialContentLength);    
+    jshFlashWrite(jsfStorageInitialContents, FLASH_SAVED_CODE2_START, jsfStorageInitialContentLength);
+    jsiConsolePrintf("Write complete.\n");
+#else
+    jsWarn("Initial storage is too large to fit in internal SPI flash!\n");
+#endif        
   }
-  jsiConsolePrintf("Write complete.\n");
 #endif
 }
 
