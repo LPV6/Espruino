@@ -95,13 +95,13 @@ void turn_off() {
 #ifdef SPIFLASH_SLEEP_CMD  
   flashPowerDown();  // Put the SPI Flash into deep power-down
 #endif  
-#ifdef VIBRATE_PIN
-  jshPinOutput(VIBRATE_PIN,1); // vibrate on
+#if defined(VIBRATE_PIN) && !defined(DICKENS)
+  jshPinOutput(VIBRATE_PIN,1); // vibrate whilst waiting for button release
 #endif
 #if defined(BTN2_PININDEX)
   while (get_btn1_state() || get_btn2_state()) {}; // wait for BTN1 and BTN2 to be released
 #else
-  while (get_btn1_state()) {}; // wait for BTN1 and BTN2 to be released
+  while (get_btn1_state()) {}; // wait for BTN1 to be released
 #endif
 #ifdef VIBRATE_PIN
   jshPinSetValue(VIBRATE_PIN,0); // vibrate off
