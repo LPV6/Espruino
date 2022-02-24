@@ -115,4 +115,8 @@ static void hardware_init(void) {
 #ifdef VIBRATE_PIN
   jshPinOutput(VIBRATE_PIN,0); // vibrate off
 #endif
+#ifdef BAT_PIN_CHARGING
+  NRF_GPIO_PIN_CNF(BAT_PIN_CHARGING,0x0003000c);     // Charge input (with pullup and low-level sense)
+#endif
+
 }
