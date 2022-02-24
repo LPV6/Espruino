@@ -114,13 +114,13 @@ void turn_off() {
   else
     NRF_P1->OUT=0x00000000;
   for (uint8_t pin=0; pin<48; pin++) {
-    NRF_GPIO_PIN_CNF(pin,0x00000004); // Set all pins as input with pulldown
+    NRF_GPIO_PIN_CNF(pin,0x00000006); // Set all pins as input disconnect with pulldown
   }
   NRF_GPIO_PIN_CNF(BAT_PIN_VOLTAGE,0x00000002);   //  D4 = battery voltage measurement (no pull, input buffer disconnected)
   NRF_GPIO_PIN_CNF(ACCEL_PIN_SDA,0x0000060d);     //  D9 = SDA open-drain output
   NRF_GPIO_PIN_CNF(ACCEL_PIN_SCL,0x0000060d);     // D10 = SCL open-drain output
-  NRF_GPIO_PIN_CNF(ACCEL_PIN_INT1,0x0000000c);      // D21 = INT1 input with pullup
-  NRF_GPIO_PIN_CNF(ACCEL_PIN_INT2,0x0000000c);      // D23 = INT2 input with pullup
+  NRF_GPIO_PIN_CNF(ACCEL_PIN_INT1,0x00000002);      // D21 = INT1 (no pull, input buffer disconnected)
+  NRF_GPIO_PIN_CNF(ACCEL_PIN_INT2,0x00000002);      // D23 = INT2 (no pull, input buffer disconnected)
   NRF_GPIO_PIN_CNF(LCD_SPI_MISO,0x0000000c);      // D27 = LCD_MISO input with pullup
   if (pinInfo[LCD_BL].port&JSH_PIN_NEGATED) // if backlight negated
     NRF_GPIO_PIN_CNF(LCD_BL,0x00000003);            // D32 = LCD backlight pin
