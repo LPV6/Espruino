@@ -129,7 +129,7 @@ void turn_off() {
 //NRF_GPIO_PIN_CNF(31,0x00000003);                // D31 = Debug output pin (brought out to external header on)
 //NRF_GPIO_PIN_CNF(BTN4_PININDEX,0x0003000c);     // D42 = BTN4 input (with pullup and low-level sense)
   NRF_GPIO_PIN_CNF(BTN1_PININDEX,0x0003000c);     // D46 = BTN1 input (with pullup and low-level sense)
-  NRF_GPIO_PIN_CNF(BAT_PIN_CHARGING,0x0003000c);     // Charge input (with pullup and low-level sense)
+  NRF_GPIO_PIN_CNF(BAT_PIN_CHARGING,0x0000000c);     // Charge input (with pullup)
 #else  // !DICKENS
   set_led_state(0,0);
 #if defined(BTN2_PININDEX)

@@ -98,8 +98,8 @@ static void hardware_init(void) {
 #endif
   set_led_state(false, false);
 #ifdef DICKENS // Simpler setup of BTN1 and BTN2 to save 48 bytes of code space
-  NRF_GPIO_PIN_CNF(BTN1_PININDEX,0x0003000c);     // BTN1 input (with pullup and low-level sense)
-  NRF_GPIO_PIN_CNF(BTN2_PININDEX,0x0003000c);     // BTN2 input (with pullup and low-level sense)
+  NRF_GPIO_PIN_CNF(BTN1_PININDEX,0x0000000c);     // BTN1 input (with pullup)
+  NRF_GPIO_PIN_CNF(BTN2_PININDEX,0x0000000c);     // BTN2 input (with pullup)
   jshPinOutput(LCD_BL, !LCD_BL_ON);               // backlight off
 //  NRF_P1->OUT=0x00000001; // Backlight output high (for off) 
 #else // !DICKENS
@@ -128,7 +128,7 @@ static void hardware_init(void) {
   jshPinOutput(VIBRATE_PIN,0); // vibrate off
 #endif
 #ifdef BAT_PIN_CHARGING
-  NRF_GPIO_PIN_CNF(BAT_PIN_CHARGING,0x0003000c);     // Charge input (with pullup and low-level sense)
+  NRF_GPIO_PIN_CNF(BAT_PIN_CHARGING,0x0000000c);     // Charge input (with pullup)
 #endif
 
 }
