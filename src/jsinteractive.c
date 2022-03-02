@@ -2043,7 +2043,10 @@ void jsiIdle() {
                   jsvObjectSetChildAndUnLock(data, "data", jsvNewFromBool((event.flags&EV_EXTI_DATA_PIN_HIGH)!=0));
               }
               if (!jsiExecuteEventCallback(0, watchCallback, 1, &data) && watchRecurring) {
-                jsError("Ctrl-C while processing watch - removing it.");
+                JsExecFlags x = execInfo.execute;
+                execInfo.execute = EXEC_YES;
+                jsError("Interrupted while processing watch - removing it (0x%x, %j)", execInfo.execute, watchCallback);
+                execInfo.execute = x;
                 jsErrorFlags |= JSERR_CALLBACK;
                 watchRecurring = false;
               }
@@ -2157,7 +2160,11 @@ void jsiIdle() {
             JsVar *interval = jsvObjectGetChild(timerPtr, "interval", 0);
             if (interval) { // if interval then it's setInterval not setTimeout
               jsvUnLock(interval);
-              jsError("Ctrl-C while processing interval - removing it.");
+              JsExecFlags x = execInfo.execute;
+              execInfo.execute = EXEC_YES;
+              jsError("Interrupted while processing interval - removing it (0x%x, %j)", x, timerCallback);
+              execInfo.execute = x;
+              jsvTrace(timerCallback, 0);
               jsErrorFlags |= JSERR_CALLBACK;
               removeTimer = true;
             }
