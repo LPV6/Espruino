@@ -2045,7 +2045,7 @@ void jsiIdle() {
               if (!jsiExecuteEventCallback(0, watchCallback, 1, &data) && watchRecurring) {
                 JsExecFlags x = execInfo.execute;
                 execInfo.execute = EXEC_YES;
-                jsError("Interrupted while processing watch - removing it (0x%x, %j)", execInfo.execute, watchCallback);
+                jsError("Interrupted while processing watch - removing it (0x%x, %j)", x, watchCallback);
                 execInfo.execute = x;
                 jsErrorFlags |= JSERR_CALLBACK;
                 watchRecurring = false;
