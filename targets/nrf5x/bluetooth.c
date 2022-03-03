@@ -758,6 +758,8 @@ uint8_t match_request : 1;               If 1 requires the application to report
    default:
      jsWarn("jsble_exec_pending: Unknown enum type %d",(int)blep);
  }
+ if (jspIsInterrupted())
+   jsWarn("jsble_exec_pending: Interrupted processing event %d",(int)blep);
  return eventsHandled;
 }
 
