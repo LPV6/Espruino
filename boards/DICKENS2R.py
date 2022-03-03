@@ -8,9 +8,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # ----------------------------------------------------------------------------------------
-# This file contains information for a specific board - the available pins, and where LEDs,
-# Buttons, and other in-built peripherals are. It is used to build documentation as well
-# as various source and header files for Espruino.
+# This file contains information for the rotated (production orientation) Dickens watch
+#  - the available pins, and where LEDs, buttons, and other in-built peripherals are. 
+# It is used to build documentation as well as various source and header files for Espruino.
 # ----------------------------------------------------------------------------------------
 
 import pinutils;
@@ -26,7 +26,7 @@ info = {
  'default_console_baudrate' : "9600",
  'variables' : 5000, # How many variables are allocated for Espruino to use. RAM will be overflowed if this number is too high and code won't compile.
  'bootloader' : 1,
- 'binary_name' : 'espruino_%v_dickensRotated.hex',
+ 'binary_name' : 'espruino_%v_dickens.hex',
  'build' : {
    'optimizeflags' : '-Os',
    'libraries' : [
