@@ -3432,14 +3432,20 @@ NO_INLINE void jswrap_banglejs_init() {
   if (firstRun && jsfIsStorageEmpty()) {
 
 // Write the initial storage contents (and reset) if WRITE_INITIAL_STORAGE_IF_EMPTY is defined
-  #ifdef WRITE_INITIAL_STORAGE_IF_EMPTY
-    if (jshPinGetValue(BTN3_PININDEX)) {
-      jsvUnLock(jspEvaluate("g.setFont('6x8').drawString('WRITING FLASH STORAGE...',20,171).flip();\n",true));
-      jsfWriteInitialStorage();
-      jsvUnLock(jspEvaluate("E.reboot();\n",true));
-    } else {
-      jsvUnLock(jspEvaluate("g.setFont('6x8').drawString('     FLASH STORAGE IS EMPTY -\\n <-- HOLD BUTTON DURING BOOT\\n     TO WRITE DEFAULT STORAGE',20,171).flip();\n",true));
-    }
+#ifdef WRITE_INITIAL_STORAGE_IF_EMPTY
+    jsvUnLock(jspEvaluate("g.setFont('6x8').drawString('<-- PRESS TO WRITE FLASH STORAGE',20,171);\n",true));
+    jsvUnLock(jspEvaluate("var x=40; g.drawRect(38,184,200,194).flip();\n",true));
+    int count=0;
+    do {
+      jsvUnLock(jspEvaluate("g.fillRect(x,186,x,192).flip(); x+=2;\n",true));
+      nrf_delay_ms(50);
+      if (jshPinGetValue(BTN3_PININDEX)) {
+        jsvUnLock(jspEvaluate("g.clearRect(0,170,239,239).drawString('WRITING FLASH STORAGE...',20,171).flip();\n",true));
+        jsfWriteInitialStorage();
+        jsvUnLock(jspEvaluate("E.reboot();\n",true));
+      }
+    } while (++count<80);
+    jsvUnLock(jspEvaluate("g.clearRect(0,170,239,239).flip();\n",true));
   #endif
   }
 #endif
