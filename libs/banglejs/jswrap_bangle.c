@@ -1191,6 +1191,7 @@ void peripheralPollHandler() {
     newz = -newz; 
 #endif
 #ifdef ACCEL_DEVICE_KX126
+    newx = -newx; //consistent directions with Bangle
     newy = -newy;
 #endif
 #ifdef LCD_ROTATION
@@ -2741,11 +2742,28 @@ JsVar *jswrap_banglejs_getCompass() {
     int cy = magmax.y-magmin.y;
     int c = cx*cx+cy*cy;
     double h = NAN;
+    // double h2 = NAN;
     if (c>3000) { // only give a heading if we think we have valid data (eg enough magnetic field difference in min/max
+#ifdef DICKENS
+      h = jswrap_math_atan2(-dx,dy)*180/PI;
+#else
       h = jswrap_math_atan2(dx,dy)*180/PI;
+#endif      
       if (h<0) h+=360;
+      // Tilt compensation - doesn't work properly yet!
+      // double phi = jswrap_math_atan(-acc.x/-acc.z);
+      // double cosphi = cos(phi);
+      // double sinphi = sin(phi);
+      // double theta = jswrap_math_atan(-acc.y/(-acc.x*sinphi-acc.z*cosphi));
+      // double costheta = cos(theta);
+      // double sintheta = sin(theta);
+      // double xh = dy*costheta + dx*sinphi*sintheta + dz*cosphi*sintheta;
+      // double yh = dz*sinphi - dx*cosphi;
+      // h2 = jswrap_math_atan2(yh,xh)*180/PI;
+      // if (h2<0) h2+=360;
     }
     jsvObjectSetChildAndUnLock(o, "heading", jsvNewFromFloat(h));
+    // jsvObjectSetChildAndUnLock(o, "headingTiltComp", jsvNewFromFloat(h2));
   }
   return o;
 #else
