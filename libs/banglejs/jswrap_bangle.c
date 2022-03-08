@@ -5283,6 +5283,9 @@ Bangle.setUI({
     "type" : "staticmethod",
     "class" : "Bangle",
     "name" : "factoryReset",
+    "params" : [
+      ["noReboot","bool","Do not reboot the watch when done (default false, so will reboot)"]
+    ],
     "generate" : "jswrap_banglejs_factoryReset",
     "#if" : "defined(BANGLEJS_Q3) || defined(EMULATED) || defined(DICKENS)"
 }
@@ -5295,9 +5298,9 @@ you need to use `Install Default Apps` under the `More...` tab
 of http://banglejs.com/apps
 */
 extern void ble_app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name);
-void jswrap_banglejs_factoryReset() {
+void jswrap_banglejs_factoryReset(bool noReboot) {
   jsfResetStorage();
-  jsiStatus |= JSIS_TODO_FLASH_LOAD;
+  if (!noReboot) jsiStatus |= JSIS_TODO_FLASH_LOAD;
 }
 
 /*JSON{
