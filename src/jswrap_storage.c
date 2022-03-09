@@ -414,6 +414,9 @@ void jswrap_storage_debug() {
   "ifndef" : "SAVE_ON_FLASH",
   "class" : "Storage",
   "name" : "getFree",
+  "params" : [
+    ["checkInternalFlash","bool","Check the internal flash (rather than external SPI flash).  Default false, so will check external storage"]
+  ],  
   "generate" : "jswrap_storage_getFree",
   "return" : ["int","The amount of free bytes"]
 }
@@ -422,8 +425,13 @@ Storage. Due to fragmentation there may be more
 bytes available, but this represents the maximum
 size of file that can be written.
  */
-int jswrap_storage_getFree() {
+int jswrap_storage_getFree(bool checkInternalFlash) {
+#ifdef FLASH_SAVED_CODE2_START
+  uint32_t addr = checkInternalFlash ? FLASH_SAVED_CODE_START : FLASH_SAVED_CODE2_START;
+  return (int)jsfGetStorageStats(addr,true).free;
+#else
   return (int)jsfGetStorageStats(0,true).free;
+#endif
 }
 
 /*JSON{
@@ -431,6 +439,9 @@ int jswrap_storage_getFree() {
   "ifndef" : "SAVE_ON_FLASH",
   "class" : "Storage",
   "name" : "getStats",
+  "params" : [
+    ["checkInternalFlash","bool","Check the internal flash (rather than external SPI flash).  Default false, so will check external storage"]
+  ],  
   "generate" : "jswrap_storage_getStats",
   "return" : ["JsVar","An object containing info about the current Storage system"]
 }
@@ -447,10 +458,15 @@ Returns:
 }
 ```
  */
-JsVar *jswrap_storage_getStats() {
+JsVar *jswrap_storage_getStats(bool checkInternalFlash) {
   JsVar *o = jsvNewObject();
   if (!o) return NULL;
+#ifdef FLASH_SAVED_CODE2_START
+  uint32_t addr = checkInternalFlash ? FLASH_SAVED_CODE_START : FLASH_SAVED_CODE2_START;
+  JsfStorageStats stats = jsfGetStorageStats(addr, true);
+#else
   JsfStorageStats stats = jsfGetStorageStats(0, true);
+#endif  
   jsvObjectSetChildAndUnLock(o, "totalBytes", jsvNewFromInteger(stats.total));
   jsvObjectSetChildAndUnLock(o, "freeBytes", jsvNewFromInteger(stats.free));
   jsvObjectSetChildAndUnLock(o, "fileBytes", jsvNewFromInteger(stats.fileBytes));
