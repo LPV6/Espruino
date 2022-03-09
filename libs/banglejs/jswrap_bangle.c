@@ -3427,26 +3427,15 @@ NO_INLINE void jswrap_banglejs_init() {
     jsvUnLock(jsiSetTimeout(jswrap_banglejs_postInit, 500));
   }
 
+// For Dickens, if it's the first time we've started and Storage is empty, then 
+// offer to write the initial storage contents (and reset)
 #ifdef DICKENS
-  // If it's the first time we've started and Storage is empty,
-  if (firstRun && jsfIsStorageEmpty()) {
-
-// Write the initial storage contents (and reset) if WRITE_INITIAL_STORAGE_IF_EMPTY is defined
-#ifdef WRITE_INITIAL_STORAGE_IF_EMPTY
-    jsvUnLock(jspEvaluate("g.setFont('6x8').drawString('<-- PRESS TO WRITE FLASH STORAGE',20,171);\n",true));
-    jsvUnLock(jspEvaluate("var x=40; g.drawRect(38,184,200,194).flip();\n",true));
-    int count=0;
-    do {
-      jsvUnLock(jspEvaluate("g.fillRect(x,186,x,192).flip(); x+=2;\n",true));
-      nrf_delay_ms(50);
-      if (jshPinGetValue(BTN3_PININDEX)) {
-        jsvUnLock(jspEvaluate("g.clearRect(0,170,239,239).drawString('WRITING FLASH STORAGE...',20,171).flip();\n",true));
-        jsfWriteInitialStorage();
-        jsvUnLock(jspEvaluate("E.reboot();\n",true));
-      }
-    } while (++count<80);
-    jsvUnLock(jspEvaluate("g.clearRect(0,170,239,239).flip();\n",true));
-  #endif
+  if (firstRun) {
+    int totalFiles = jsfGetStorageStats(FLASH_SAVED_CODE2_START, true).fileCount + jsfGetStorageStats(FLASH_SAVED_CODE_START, true).fileCount;
+    if (totalFiles == 0) {
+      jsvUnLock(jspEvaluate("g.setFont('6x8').drawString('<-- PRESS TO WRITE FLASH STORAGE',20,171);\n",true));
+      jsvUnLock(jspEvaluate("setWatch(_=>{g.clearRect(0,170,239,239).drawString('WRITING FLASH STORAGE...',20,171).flip();Bangle.factoryReset(0,1);E.reboot()},BTN3);\n",true));
+    }
   }
 #endif
   //jsiConsolePrintf("bangleFlags2 %d\n",bangleFlags);
@@ -5284,7 +5273,8 @@ Bangle.setUI({
     "class" : "Bangle",
     "name" : "factoryReset",
     "params" : [
-      ["noReboot","bool","Do not reboot the watch when done (default false, so will reboot)"]
+      ["noReboot","bool","Do not reboot the watch when done (default false, so will reboot)"],
+      ["noErase","bool","Do not erase storage before loading it with the default contents (default false, so will erase - only set this true if you know the storage is already empty!)"]
     ],
     "generate" : "jswrap_banglejs_factoryReset",
     "#if" : "defined(BANGLEJS_Q3) || defined(EMULATED) || defined(DICKENS)"
@@ -5298,8 +5288,8 @@ you need to use `Install Default Apps` under the `More...` tab
 of http://banglejs.com/apps
 */
 extern void ble_app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name);
-void jswrap_banglejs_factoryReset(bool noReboot) {
-  jsfResetStorage();
+void jswrap_banglejs_factoryReset(bool noReboot, bool noErase) {
+  jsfResetStorage(noErase);
   if (!noReboot) jsiStatus |= JSIS_TODO_FLASH_LOAD;
 }
 

@@ -75,7 +75,6 @@ info = {
      'SOURCES += libs/misc/stepcount.c',
      'SOURCES += libs/banglejs/dickens_storage_default.c',
      'DEFINES += -DESPR_STORAGE_INITIAL_CONTENTS=1',
-     'DEFINES += -DWRITE_INITIAL_STORAGE_IF_EMPTY',
      'DEFINES += -DESPR_USE_STORAGE_CACHE=32', # Add a 32 entry cache to speed up finding files
      'JSMODULESOURCES += libs/js/banglejs/locale.min.js',
      'DEFINES += -DBANGLEJS',

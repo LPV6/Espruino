@@ -1227,11 +1227,13 @@ void jsfRemoveCodeFromFlash() {
   jsiConsolePrint("\nDone!\n");
 }
 
-// Erase storage to 'factory' values.
-void jsfResetStorage() {
-  jsiConsolePrintf("Erasing all storage...\n");
-  jsfEraseAll();
-  jsiConsolePrintf("Erase complete.\n");
+// Set storage content to 'factory' values.  Will erase everything first unless noErase==true
+void jsfResetStorage(bool noErase) {
+  if (!noErase) {
+    jsiConsolePrintf("Erasing all storage...\n");
+    jsfEraseAll();
+    jsiConsolePrintf("Erase complete.\n");
+  }
   jsfWriteInitialStorage();
 }
 
