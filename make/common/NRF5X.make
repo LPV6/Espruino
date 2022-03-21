@@ -493,21 +493,21 @@ $(PROJ_NAME).hex: $(PROJ_NAME).app_hex
  endif # USE_BOOTLOADER
 
 
-$(PROJ_NAME).zip: $(PROJ_NAME).app_hex
+$(PROJ_NAME)_DFU.zip: $(PROJ_NAME).app_hex
 ifdef NRF5X_SDK_11 # SDK11 requires non-secure DFU that the adafruit tools support
 	@echo Creating DFU ZIP
 	# adafruit-nrfutil dfu genpkg --help
 	@cp $(PROJ_NAME).app_hex $(PROJ_NAME)_app.hex
-	adafruit-nrfutil dfu genpkg --application $(PROJ_NAME)_app.hex $(DFU_SETTINGS) $(PROJ_NAME).zip 
+	adafruit-nrfutil dfu genpkg --application $(PROJ_NAME)_app.hex $(DFU_SETTINGS) $(PROJ_NAME)_DFU.zip 
 	@rm $(PROJ_NAME)_app.hex
 else
 	@echo Creating DFU ZIP
 	# nrfutil  pkg generate --help
 	@cp $(PROJ_NAME).app_hex $(PROJ_NAME)_app.hex
 ifdef BOOTLOADER
-	nrfutil pkg generate $(PROJ_NAME).zip --bootloader $(PROJ_NAME)_app.hex --bootloader-version 0xff --hw-version 52 --sd-req 0x8C,0x91 --key-file $(DFU_PRIVATE_KEY)
+	nrfutil pkg generate $(PROJ_NAME)_DFU.zip --bootloader $(PROJ_NAME)_app.hex --bootloader-version 0xff --hw-version 52 --sd-req 0x8C,0x91 --key-file $(DFU_PRIVATE_KEY)
 else
-	nrfutil pkg generate $(PROJ_NAME).zip --application $(PROJ_NAME)_app.hex $(DFU_SETTINGS) --key-file $(DFU_PRIVATE_KEY)  
+	nrfutil pkg generate $(PROJ_NAME)_DFU.zip --application $(PROJ_NAME)_app.hex $(DFU_SETTINGS) --key-file $(DFU_PRIVATE_KEY)  
 endif
 	@rm $(PROJ_NAME)_app.hex
 endif
@@ -528,7 +528,7 @@ ifdef DFU_UPDATE_BUILD_WITH_HEX
 proj: $(PROJ_NAME).hex $(PROJ_NAME).zip
 else
 ifdef DFU_UPDATE_BUILD
-proj: $(PROJ_NAME).zip
+proj: $(PROJ_NAME)_DFU.zip
 else
 proj: $(PROJ_NAME).hex
 endif
