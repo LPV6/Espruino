@@ -628,8 +628,8 @@ static const char SPILCD_INIT_CODE[] = {
     0xbd,0,1,  6,
     0xbc,0,1,  0,
     0xff,0,3,  0x60,  1,  4,
-    0xc3,0,1,  0x1d, // Power control 2: 0x13->0x1d
-    0xc4,0,1,  0x1d, // Power control 3: 0x13->0x1d
+    0xc3,0,1,  0x13, // Power control 2: 0x13->0x1d->0x13 (again)
+    0xc4,0,1,  0x13, // Power control 3: 0x13->0x1d->0x13 (again)
     0xc9,0,1,  0x25, // Power control 4: 0x22->0x25
     0xbe,0,1,  0x11,
     0xe1,0,2,  0x10,  0xe,
@@ -650,14 +650,14 @@ static const char SPILCD_INIT_CODE[] = {
     0x64,0,7,  0x28,  0x29,  0xf1,  1,  0xf1,  0,  7,
     0x66,0,10,  0x3c,  0,  0xcd,  0x67,  0x45,  0x45,  0x10,  0,  0,  0,
     0x67,0,10,  0,  0x3c,  0,  0,  0,  1,  0x54,  0x10,  0x32,  0x98,
-    0x74,0,7,  0x10,  0x85,  0x80,  0,  0,  0x4e,  0,
+    0x74,0,7,  0x10,  0x68,  0x80,  0,  0,  0x4e,  0, // 0x85->0x68
     0x98,0,2,  0x3e,  7,
     0x99,0,2,  0x3e,  7, // bvee 2x
-    0x35,0,1,  0,
-    0x21,5,0,
-    0x11,5,0,
-    0x29,5,0,
-    0x2c,0,0,
+    0x35,0,1,  0,   // Tearing effect (TE) line ON, with V-blanking only
+    0x21,5,0,       // Display inversion ON
+    0x11,5,0,       // Sleep out
+    0x29,5,0,       // Display ON
+    0x2c,0,0,       // Memory write
 #endif
    // End
    0, 0, 255/*DATA_LEN = 255 => END*/
@@ -748,9 +748,9 @@ void lcd_init() {
   jshPinOutput(LCD_SPI_SCK,1);
   jshPinOutput(LCD_SPI_MOSI,1);
   jshPinOutput(LCD_SPI_RST,0);
-  jshDelayMicroseconds(10000);
+  nrf_delay_ms(50);
   jshPinOutput(LCD_SPI_RST, 1);
-  jshDelayMicroseconds(10000);
+  nrf_delay_ms(120);
 
   // Send initialization commands
   const char *cmd = SPILCD_INIT_CODE;
